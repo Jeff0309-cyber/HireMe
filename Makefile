@@ -3,7 +3,7 @@ PY      := .venv/bin/python
 ENV     := PYTHONPATH=backend:verifier
 NPM     := PATH="$(CURDIR)/.venv/bin:$$PATH" npm
 
-.PHONY: setup keys test run frontend harness demo demo-scenarios tamper-demo
+.PHONY: setup keys test run frontend harness eval demo demo-scenarios tamper-demo
 
 setup:            ## create .venv (Python 3.11) and install deps; needs uv
 	uv venv --python 3.11 .venv
@@ -25,6 +25,9 @@ frontend:         ## dashboard on :5173, proxies /api to :8000
 
 harness:          ## run all scenarios and check expectations
 	$(ENV) $(PY) -m app.harness
+
+eval:             ## gate vs naive baseline on 6 scenarios -> markdown with Wilson 95% intervals (docs/harness_results.md)
+	$(ENV) $(PY) -m app.harness.run
 
 demo:             ## run the SIMULATED mission headlessly and print its signed log
 	$(ENV) $(PY) -m app.agent.mission --export data/mission
