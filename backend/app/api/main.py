@@ -9,6 +9,8 @@
   GET  /api/runs/{id}/verify[?tamper=1] run verifier/verify_log.py on it (tamper=1 flips one
                                         field in a copy first, to show detection)
 
+The one-page mission demo (/, /mandate, /run, /log, /tamper) lives in app/api/web.py.
+
 Runs live in memory plus data/runs/<id>/. Everything shown is SIMULATED.
 """
 from __future__ import annotations
@@ -27,6 +29,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 
+from app.api.web import router as web_router
 from app.harness import RunResult, load_scenarios, run_scenario
 from app.ledger.keys import demo_key, load_or_create_key
 from app.llm import agent_model, fast_model, mode_from_env
@@ -36,6 +39,7 @@ RUNS_DIR = Path(__file__).resolve().parents[3] / "data" / "runs"
 STEP_DELAY_S = int(os.environ.get("GIGGUARD_STEP_MS", "250")) / 1000  # slows runs so the UI can follow
 
 app = FastAPI(title="GigGuard (SIMULATED)")
+app.include_router(web_router)   # the one-page demo: /, /mandate, /run, /log, /tamper
 
 
 def _keys():

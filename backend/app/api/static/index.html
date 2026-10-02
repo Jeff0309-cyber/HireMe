@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GigGuard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #16181d; --muted: #5d6573; --line: #e2e5ea;
+    --allow: #0f7b45; --allow-bg: #e3f6ec; --deny: #b42318; --deny-bg: #fde8e7;
+    --esc: #9a5b00; --esc-bg: #fff3d6; --flag-bg: #fff4e5; --flag-line: #f59e0b;
+    --sim: #5b21b6; --sim-bg: #ede9fe; --accent: #3b5bdb; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --card: #1a1d24; --text: #e8eaee; --muted: #9aa3b2; --line: #2b303a;
+      --allow: #4ade80; --allow-bg: #12301f; --deny: #f87171; --deny-bg: #3a1513;
+      --esc: #fbbf24; --esc-bg: #3a2a08; --flag-bg: #2e2208; --flag-line: #f59e0b;
+      --sim: #c4b5fd; --sim-bg: #2a1f4d; --accent: #8ea2ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  textarea { width: 100%; min-height: 220px; font: 12.5px/1.45 var(--mono); padding: 10px; border: 1px solid var(--line);
+             border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
+  button, select { font: inherit; border-radius: 8px; padding: 9px 14px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  button { cursor: pointer; font-weight: 600; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--deny); border-color: var(--deny); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .02em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .allow { color: var(--allow); background: var(--allow-bg); }
+  .deny { color: var(--deny); background: var(--deny-bg); }
+  .escalate { color: var(--esc); background: var(--esc-bg); }
+  .sim { color: var(--sim); background: var(--sim-bg); }
+  .untrusted { color: var(--muted); background: var(--bg); border: 1px solid var(--line); }
+  .flag { color: var(--esc); background: var(--esc-bg); }
+  .rule { font: 700 12px var(--mono); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; margin-top: 8px; }
+  .grid dt { font-size: 12px; color: var(--muted); }
+  .grid dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .hash { font: 12px var(--mono); overflow-wrap: anywhere; }
+  .pinned { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 10px 0; }
+  .pinned b { color: var(--accent); }
+  ol.log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+  ol.log li { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  ol.log li.flagged { background: var(--flag-bg); border-color: var(--flag-line); border-left-width: 4px; }
+  ol.log li.denied { border-left: 4px solid var(--deny); }
+  .meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .meta .seq { font-family: var(--mono); }
+  .reason { font: 12.5px/1.45 var(--mono); margin-top: 4px; overflow-wrap: anywhere; }
+  .quote { margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .summary { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .summary span { padding: 4px 10px; border-radius: 8px; background: var(--bg); font-size: 13px; }
+  .result { border-radius: 8px; padding: 10px; margin-top: 10px; font-size: 13px; overflow-wrap: anywhere; }
+  .result.pass { background: var(--allow-bg); color: var(--allow); }
+  .result.fail { background: var(--deny-bg); color: var(--deny); }
+  .result.warn { background: var(--esc-bg); color: var(--esc); }
+  .result .mono { font-family: var(--mono); }
+  .error { color: var(--deny); font-size: 13px; white-space: pre-wrap; margin-top: 8px; }
+  @media (max-width: 560px) { main { padding: 10px; } section { padding: 12px; } textarea { min-height: 180px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>GigGuard</h1>
+  <span class="badge sim">SIMULATED · no real marketplace, no real money</span>
+  <span class="muted">An agent that can only spend what your signed mandate allows.</span>
+</header>
+
+<main>
+  <section id="mandate-section">
+    <h2>1. Mandate</h2>
+    <p class="muted">Edit the mandate (JSON, money in HKD cents), then sign it with the user key. The gate trusts only that key.</p>
+    <textarea id="mandate" spellcheck="false" aria-label="Mandate JSON"></textarea>
+    <div class="row">
+      <button class="primary" id="sign">Sign mandate</button>
+      <button id="reset">Reset to default</button>
+    </div>
+    <div id="mandate-error" class="error" role="alert"></div>
+    <div id="policy-card"></div>
+  </section>
+
+  <section id="mission-section">
+    <h2>2. Mission</h2>
+    <p class="muted">Runs the scripted mission against three SIMULATED freelancers. Every step lands in a signed, hash-chained log.</p>
+    <div class="row"><button class="primary" id="run">Run mission</button></div>
+    <div id="summary"></div>
+    <div id="pinned"></div>
+    <ol class="log" id="log" aria-live="polite"></ol>
+  </section>
+
+  <section id="tamper-section">
+    <h2>3. Tamper with a copy</h2>
+    <p class="muted">Changes a copy of the log (the real one is untouched) and runs the standalone verifier against the pinned head hash.</p>
+    <div class="row">
+      <select id="tamper-kind" aria-label="Kind of tampering">
+        <option value="edit">Edit a field</option>
+        <option value="delete">Delete an entry</option>
+        <option value="reorder">Reorder two entries</option>
+        <option value="swap_signature">Swap a signature</option>
+        <option value="truncate">Cut off the tail</option>
+      </select>
+      <button class="danger" id="tamper" disabled>Tamper with a copy</button>
+    </div>
+    <div id="tamper-result"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+// Freelancer text is UNTRUSTED. Everything is rendered with textContent / text nodes, never innerHTML.
+
+const $ = (id) => document.getElementById(id);
+
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") node.className = v; else node.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c === null || c === undefined || c === false) continue;
+    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return node;
+}
+
+function hkd(minor) {
+  if (minor === null || minor === undefined) return "—";
+  const abs = Math.abs(minor), whole = Math.floor(abs / 100).toLocaleString("en-US");
+  return `${minor < 0 ? "-" : ""}HKD ${whole}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+const sim = () => el("span", { class: "badge sim" }, "SIMULATED");
+const short = (h) => (h ? `${h.slice(0, 16)}…` : "—");
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = Array.isArray(data.detail)
+      ? data.detail.map((d) => `• ${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("\n")
+      : data.detail || res.statusText;
+    throw new Error(detail);
+  }
+  return data;
+}
+
+// --- 1. mandate -----------------------------------------------------------------------------
+
+let defaultMandate = null;
+
+function renderPolicyCard(out) {
+  const card = $("policy-card");
+  card.replaceChildren();
+  if (!out || !out.signed_mandate) return;
+  const m = out.signed_mandate.mandate, p = m.policy, e = p.eligibility;
+  const rows = [
+    ["Task", m.task], ["Category", m.category], ["Principal", m.principal],
+    ["Budget cap", hkd(p.budget_cap.amount_minor)],
+    ["Auto-approve up to", p.auto_approve_limit ? hkd(p.auto_approve_limit.amount_minor) : "no limit"],
+    ["Max hires", p.max_hires],
+    ["Eligibility", `≥ ${(e.min_rating_x100 / 100).toFixed(2)}★ · ≥ ${e.min_completed_orders} orders${e.verified_required ? " · verified" : ""}`],
+    ["Velocity", `${p.velocity.max_orders} orders / ${p.velocity.window_minutes} min`],
+    ["Payment", `${p.milestone_only ? "milestones only" : "any split"} · ${p.forbid_offplatform ? "on-platform only" : "off-platform allowed"}`],
+    ["Valid", `${p.issued_at} → ${p.expires_at}`],
+    ["Escalations expire after", `${Math.round(p.escalation_ttl_seconds / 3600)} h`],
+    ["Blocked", (p.blocked_freelancers || []).join(", ") || "none"],
+  ];
+  card.append(
+    el("div", { class: "pinned" },
+      el("div", {}, el("b", {}, "Signed policy "), el("span", { class: "hash" }, `${p.policy_id} v${p.version}`)),
+      el("dl", { class: "grid" }, rows.map(([k, v]) => el("div", {}, el("dt", {}, k), el("dd", {}, v)))),
+      el("dl", { class: "grid" },
+        el("div", {}, el("dt", {}, "policy_hash"), el("dd", { class: "hash" }, out.policy_hash)),
+        el("div", {}, el("dt", {}, "signature"), el("dd", { class: "hash" }, short(out.signed_mandate.signature))),
+        el("div", {}, el("dt", {}, "trusted user key"), el("dd", { class: "hash" }, short(out.trusted_user_pubkey))))));
+}
+
+async function loadMandate() {
+  const out = await api("GET", "/mandate");
+  const mandate = out.signed_mandate ? out.signed_mandate.mandate : out.mandate;
+  if (!out.signed_mandate) defaultMandate = mandate;
+  $("mandate").value = JSON.stringify(mandate, null, 2);
+  renderPolicyCard(out);
+}
+
+$("sign").addEventListener("click", async () => {
+  $("mandate-error").textContent = "";
+  let mandate;
+  try { mandate = JSON.parse($("mandate").value); }
+  catch (err) { $("mandate-error").textContent = `Not valid JSON: ${err.message}`; return; }
+  try { renderPolicyCard(await api("POST", "/mandate", { mandate })); }
+  catch (err) { $("mandate-error").textContent = `Mandate rejected:\n${err.message}`; renderPolicyCard(null); }
+});
+
+$("reset").addEventListener("click", async () => {
+  if (!defaultMandate) defaultMandate = (await api("GET", "/mandate")).mandate;
+  if (defaultMandate) $("mandate").value = JSON.stringify(defaultMandate, null, 2);
+});
+
+// --- 2. mission ---------------------------------------------------------------------------------
+
+const MARKET_EVENTS = new Set(["candidate_scored", "freelancer_picked", "message_received", "message_flagged",
+  "quote_parsed", "addon_proposed", "escrow_created", "escrow_transition", "deliverable_checked", "no_eligible_freelancer"]);
+
+function describe(e) {
+  const i = e.inputs;
+  switch (e.event_type) {
+    case "mission_started": return [`Task: ${i.task}`];
+    case "candidate_scored":
+      return [`${i.freelancer_id}: fit ${i.fit}`, i.eligibility_failures.length ? ` · not eligible (${i.eligibility_failures.join(", ")})` : " · eligible"];
+    case "freelancer_picked": return [`Picked ${i.freelancer_id}`];
+    case "message_received":
+      return [el("span", { class: "badge untrusted" }, "UNTRUSTED"), ` ${i.message.freelancer_id} wrote:`,
+              el("div", { class: "quote" }, i.message.text)];
+    case "message_flagged":
+      return [`${i.freelancer_id}: `, ...i.flags.map((f) => el("span", { class: "badge flag" }, f)),
+              ` → action taken: ${i.action_taken}`];
+    case "message_blocked": return [`Blocked outbound message to ${i.freelancer_id}: ${i.violations.join(", ")}`];
+    case "quote_parsed": return [`${i.freelancer_id}: price read as ${i.status} (${hkd(i.amount_minor)})`];
+    case "addon_proposed": return [`Add-on from ${i.freelancer_id} for ${hkd(i.amount_minor)} sent to the gate`];
+    case "escrow_created": return [`${i.order_id} created for ${i.freelancer_id}`];
+    case "escrow_transition": return [`${i.order_id}: ${i.from} → ${i.to}`, i.total_minor ? ` (${hkd(i.total_minor)})` : "",
+                                      i.amount_minor ? ` (${hkd(i.amount_minor)} paid out)` : "", i.rule_id ? ` (${i.rule_id})` : ""];
+    case "deliverable_checked": return [`${i.filename}: ${i.file_type}, ${i.words} words → ${i.ok ? "OK" : i.problem}`];
+    case "mission_finished": return [`Finished: hired ${i.hired || "nobody"}, order ${i.order_state || "—"}, released ${hkd(i.released_minor)}, ${i.flagged_messages} flagged messages`];
+    default: return [JSON.stringify(i).slice(0, 160)];
+  }
+}
+
+function renderLog(out) {
+  const s = out.summary;
+  $("summary").replaceChildren(el("div", { class: "summary" },
+    el("span", {}, `Hired: ${s.hired || "nobody"}`), el("span", {}, `Order: ${s.order_state || "—"}`),
+    el("span", {}, `Add-on: ${s.addon_rule ? `${s.addon_rule} (denied)` : "—"}`),
+    el("span", {}, `Released: ${hkd(s.released_minor)}`), el("span", {}, `Flagged: ${s.flagged_messages}`),
+    el("span", { class: `badge ${out.verify.ok ? "allow" : "deny"}` }, out.verify.ok ? "LOG VERIFIES" : "LOG BROKEN")));
+
+  $("pinned").replaceChildren(el("div", { class: "pinned" },
+    el("div", {}, el("b", {}, "Pinned head hash "), el("span", { class: "muted" }, `(${out.entries.length} entries)`)),
+    el("div", { class: "hash" }, out.head_hash),
+    el("div", { class: "muted" }, "Record this value: it's the only way to detect entries cut off the end of a copy.")));
+
+  $("log").replaceChildren(...out.entries.map((e) => {
+    const flagged = e.event_type === "message_flagged";
+    const cls = flagged ? "flagged" : e.decision === "deny" ? "denied" : "";
+    const meta = el("div", { class: "meta" }, el("span", { class: "seq" }, `#${e.seq}`), e.event_type,
+      e.decision ? el("span", { class: `badge ${e.decision}` }, e.decision.toUpperCase()) : null,
+      e.rule_id ? el("span", { class: "rule" }, e.rule_id) : null,
+      MARKET_EVENTS.has(e.event_type) ? sim() : null,
+      el("span", { class: "hash", title: `entry_hash ${e.entry_hash}` }, short(e.entry_hash)));
+    return el("li", { class: cls }, meta, e.reason ? el("div", { class: "reason" }, e.reason) : el("div", {}, describe(e)));
+  }));
+  $("tamper").disabled = false;
+}
+
+$("run").addEventListener("click", async () => {
+  $("run").disabled = true;
+  $("tamper-result").replaceChildren();
+  try { renderLog(await api("POST", "/run", {})); }
+  catch (err) { $("summary").replaceChildren(el("div", { class: "error" }, err.message)); }
+  finally { $("run").disabled = false; }
+});
+
+// --- 3. tamper ------------------------------------------------------------------------------------
+
+$("tamper").addEventListener("click", async () => {
+  try {
+    const out = await api("POST", "/tamper", { kind: $("tamper-kind").value });
+    const box = (ok, title, msg, warn) => el("div", { class: `result ${ok ? (warn ? "warn" : "pass") : "fail"}` },
+      el("b", {}, title), el("div", { class: "mono" }, `${ok ? "PASS" : "FAIL"}: ${msg}`));
+    const parts = [
+      box(out.original.ok, "Original log, checked against the pinned head", out.original.message),
+      box(out.tampered.ok, `Tampered copy: ${out.what}`, out.tampered.message),
+    ];
+    if (out.without_pinned_head) {
+      parts.push(box(out.without_pinned_head.ok, "Same truncated copy WITHOUT a pinned head",
+        `${out.without_pinned_head.message} ← this is why we pin the head hash`, true));
+    }
+    $("tamper-result").replaceChildren(...parts);
+  } catch (err) {
+    $("tamper-result").replaceChildren(el("div", { class: "error" }, err.message));
+  }
+});
+
+loadMandate().catch((err) => { $("mandate-error").textContent = `Could not reach the API: ${err.message}`; });
+</script>
+</body>
+</html>

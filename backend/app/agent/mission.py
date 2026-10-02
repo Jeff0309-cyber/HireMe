@@ -119,21 +119,30 @@ class Mission:
     def proposal_for(self, profile: Profile, price_minor: int, proposal_id: str) -> HireProposal:
         fee = compute_fee(price_minor, self.observed)          # fee rate comes only from data/observed.json
         return HireProposal(proposal_id=proposal_id, platform=profile.platform, freelancer_id=profile.freelancer_id,
-                            category=CATEGORY, price=Money(amount_minor=price_minor), fees=[fee.as_fee()],
+                            category=self.signed.mandate.category, price=Money(amount_minor=price_minor),
+                            fees=[fee.as_fee()],
                             payment_channel="platform_escrow")
 
 
-def run_mission(agent_key=None, user_key=None) -> MissionResult:
+def default_mandate() -> Mandate:
+    return Mandate(principal="demo-user (SIMULATED)", task=TASK, category=CATEGORY, policy=mission_policy())
+
+
+def run_mission(signed: Optional[SignedMandate] = None, agent_key=None, user_key=None) -> MissionResult:
+    """Run the mission under `signed` (default: the demo mandate signed with user_key).
+
+    The gate trusts only user_key's public key, so a mandate edited after signing stops at step 1.
+    """
     user_key = user_key or demo_key("user")
     agent_key = agent_key or demo_key("agent")
     clock = ScenarioClock(START)
-    signed = sign_mandate(Mandate(principal="demo-user (SIMULATED)", task=TASK, category=CATEGORY,
-                                  policy=mission_policy()), user_key)
+    signed = signed or sign_mandate(default_mandate(), user_key)
+    task, category = signed.mandate.task, signed.mandate.category
     log = ChainLog(agent_key, clock.tick_iso, policy_hash=mandate_digest(signed.mandate))
     m = Mission(signed, user_key.verify_key.encode().hex(), log, clock)
     steps_ok = True
 
-    log.append("mission_started", {"task": TASK, "policy_id": m.policy.policy_id, "label": "SIMULATED",
+    log.append("mission_started", {"task": task, "policy_id": m.policy.policy_id, "label": "SIMULATED",
                                    "agent_pubkey": log.public_key_hex})
 
     # 1. Signature.
@@ -147,16 +156,19 @@ def run_mission(agent_key=None, user_key=None) -> MissionResult:
         return len(JOB_KEYWORDS & {s.lower() for s in p.skills})
 
     candidates = []
-    for p in m.market.profiles(CATEGORY):
+    for p in m.market.profiles(category):
         failures = [f.code for f in eligibility_failures(p, m.policy)]
         log.append("candidate_scored", {"freelancer_id": p.freelancer_id, "fit": fit(p), "eligibility_failures": failures})
         if not failures:
             candidates.append(p)
+    if not candidates:
+        log.append("no_eligible_freelancer", {"category": category, "label": "SIMULATED"})
+        return _finish(m, False, None, None, None)
     pick = sorted(candidates, key=lambda p: (-fit(p), p.freelancer_id))[0]
     log.append("freelancer_picked", {"freelancer_id": pick.freelancer_id, "fit": fit(pick)})
 
     # 3. Message, read the reply, parse the price deterministically.
-    intro = f"Hi {pick.display_name.split(' (')[0]}, we have a job: {TASK}. Could you reply with one total price in HKD?"
+    intro = f"Hi {pick.display_name.split(' (')[0]}, we have a job: {task}. Could you reply with one total price in HKD?"
     if not m.send(pick.freelancer_id, intro):
         return _finish(m, False, None, None, None)
     quote = m.receive(pick.freelancer_id, m.market.message(pick.freelancer_id, "quote"))
@@ -188,8 +200,12 @@ def run_mission(agent_key=None, user_key=None) -> MissionResult:
     # 7. Fake pre-approval: flagged, ignored. (No code path reads flags to release money.)
     m.receive("f_ugo", m.market.message("f_ugo", "preapproval"))
 
-    # 8. Delivery and check.
-    filename, content = m.market.deliverable(pick.freelancer_id)
+    # 8. Delivery and check. A freelancer with no deliverable never gets paid: the order is held.
+    try:
+        filename, content = m.market.deliverable(pick.freelancer_id)
+    except KeyError:
+        m.escrow.hold("order-main", "NO_DELIVERY", idempotency_key="hold-main")
+        return _finish(m, False, pick.freelancer_id, addon_decision.rule_id, m.escrow.orders["order-main"].state)
     m.receive(pick.freelancer_id, m.market.message(pick.freelancer_id, "delivered", filename=filename))
     check = m.escrow.deliver("order-main", filename, content, idempotency_key="deliver-main")
     steps_ok &= check.ok
