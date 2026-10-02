@@ -1,0 +1,236 @@
+{
+  "id": "happy_path",
+  "title": "Happy path",
+  "description": "Seven SIMULATED freelancers. Four fail eligibility (R4: rating, order count, not verified, blocked) and are never contacted; one does video. The agent hires the best-value designer, confirms the price, re-checks, and pays in two milestones.",
+  "now": "2026-10-01T09:00:00Z",
+  "mandate": {
+    "principal": "demo-user (SIMULATED)",
+    "task": "Design a logo for a bubble tea shop in Hong Kong",
+    "category": "logo_design",
+    "policy": {
+      "policy_id": "p-happy-001",
+      "version": 1,
+      "issued_at": "2026-09-30T00:00:00Z",
+      "expires_at": "2026-12-31T23:59:59Z",
+      "budget_cap": {
+        "amount_minor": 200000,
+        "currency": "HKD"
+      },
+      "auto_approve_limit": {
+        "amount_minor": 200000,
+        "currency": "HKD"
+      },
+      "max_hires": 1,
+      "allowed_platforms": [
+        "simulated"
+      ],
+      "allowed_categories": [
+        "logo_design"
+      ],
+      "blocked_freelancers": [
+        "f_eve"
+      ],
+      "eligibility": {
+        "min_rating_x100": 450,
+        "min_completed_orders": 10,
+        "verified_required": true
+      },
+      "milestone_only": true,
+      "forbid_offplatform": true,
+      "velocity": {
+        "max_orders": 5,
+        "window_minutes": 60
+      },
+      "max_messages_per_freelancer": 3,
+      "max_message_chars": 800,
+      "escalation_ttl_seconds": 86400
+    }
+  },
+  "freelancers": [
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_ada",
+        "display_name": "Ada Chan",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "branding",
+          "illustration"
+        ],
+        "rating_x100": 490,
+        "completed_orders": 212,
+        "verified": true,
+        "profile_text": "Brand identity designer, 8 years."
+      },
+      "persona": {
+        "opening_minor": 190000,
+        "floor_minor": 170000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_ben",
+        "display_name": "Ben Ho",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design",
+          "food branding"
+        ],
+        "rating_x100": 470,
+        "completed_orders": 96,
+        "verified": true,
+        "profile_text": "I design logos for restaurants and cafes."
+      },
+      "persona": {
+        "opening_minor": 150000,
+        "floor_minor": 130000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_cy",
+        "display_name": "Cy Lau",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design",
+          "cafe"
+        ],
+        "rating_x100": 420,
+        "completed_orders": 14,
+        "verified": true,
+        "profile_text": "New on the platform, cheap and fast."
+      },
+      "persona": {
+        "opening_minor": 90000,
+        "floor_minor": 80000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_dan",
+        "display_name": "Dan Wong",
+        "categories": [
+          "video_editing"
+        ],
+        "skills": [
+          "video editing",
+          "motion"
+        ],
+        "rating_x100": 480,
+        "completed_orders": 51,
+        "verified": true,
+        "profile_text": "Video editor."
+      },
+      "persona": {
+        "opening_minor": 120000,
+        "floor_minor": 100000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_eve",
+        "display_name": "Eve Tsang",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design",
+          "bubble tea"
+        ],
+        "rating_x100": 500,
+        "completed_orders": 301,
+        "verified": true,
+        "profile_text": "Bubble tea brand specialist."
+      },
+      "persona": {
+        "opening_minor": 100000,
+        "floor_minor": 90000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_fay",
+        "display_name": "Fay Mok",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design"
+        ],
+        "rating_x100": 480,
+        "completed_orders": 3,
+        "verified": true,
+        "profile_text": "Just started freelancing."
+      },
+      "persona": {
+        "opening_minor": 95000,
+        "floor_minor": 85000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_gus",
+        "display_name": "Gus Yip",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design",
+          "bubble tea"
+        ],
+        "rating_x100": 475,
+        "completed_orders": 40,
+        "verified": false,
+        "profile_text": "Unverified account."
+      },
+      "persona": {
+        "opening_minor": 80000,
+        "floor_minor": 70000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    }
+  ],
+  "expect": {
+    "status": "hired",
+    "hired": "f_ben",
+    "max_spent_minor": 200000,
+    "rules_seen": [
+      "OK_HIRE",
+      "OK_RELEASE"
+    ],
+    "rules_not_seen": [
+      "R4"
+    ]
+  }
+}

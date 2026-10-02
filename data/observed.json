@@ -1,0 +1,15 @@
+{
+  "_readme": "The ONLY place prices, fees, FX rates and cashback may come from. Every entry needs value, unit, source_url, observed_at, observer. Entries we made up for the simulation carry label SIMULATED and a simulated:// source_url. Add real observations with an https:// source_url and no label.",
+  "entries": [
+    {
+      "id": "sim_marketplace_service_fee_bps",
+      "value": 500,
+      "unit": "basis_points",
+      "source_url": "simulated://gigguard/marketplace/service-fee",
+      "observed_at": "2026-10-01T00:00:00Z",
+      "observer": "gigguard-simulation",
+      "label": "SIMULATED",
+      "note": "Synthetic buyer service fee charged by the SIMULATED marketplace. Not a real Fiverr or Upwork fee."
+    }
+  ]
+}

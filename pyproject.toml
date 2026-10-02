@@ -1,0 +1,18 @@
+[project]
+name = "gigguard"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic>=2",
+  "pynacl",
+  "anthropic",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "hypothesis", "httpx"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend", "verifier"]
+testpaths = ["tests"]

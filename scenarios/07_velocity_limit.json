@@ -1,0 +1,145 @@
+{
+  "id": "velocity_limit",
+  "title": "Runaway orders",
+  "description": "Two orders were already placed in the last half hour and the policy allows 2 per hour, so R9 denies every new hire.",
+  "now": "2026-10-01T09:00:00Z",
+  "mandate": {
+    "principal": "demo-user (SIMULATED)",
+    "task": "Design a logo for a bubble tea shop in Hong Kong",
+    "category": "logo_design",
+    "policy": {
+      "policy_id": "p-velocity-001",
+      "version": 1,
+      "issued_at": "2026-09-30T00:00:00Z",
+      "expires_at": "2026-12-31T23:59:59Z",
+      "budget_cap": {
+        "amount_minor": 500000,
+        "currency": "HKD"
+      },
+      "auto_approve_limit": {
+        "amount_minor": 200000,
+        "currency": "HKD"
+      },
+      "max_hires": 5,
+      "allowed_platforms": [
+        "simulated"
+      ],
+      "allowed_categories": [
+        "logo_design"
+      ],
+      "blocked_freelancers": [],
+      "eligibility": {
+        "min_rating_x100": 450,
+        "min_completed_orders": 10,
+        "verified_required": true
+      },
+      "milestone_only": false,
+      "forbid_offplatform": true,
+      "velocity": {
+        "max_orders": 2,
+        "window_minutes": 60
+      },
+      "max_messages_per_freelancer": 3,
+      "max_message_chars": 800,
+      "escalation_ttl_seconds": 86400
+    }
+  },
+  "prior_orders": [
+    {
+      "at": "2026-10-01T08:30:00Z",
+      "total_minor": 20000
+    },
+    {
+      "at": "2026-10-01T08:45:00Z",
+      "total_minor": 20000
+    }
+  ],
+  "freelancers": [
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_ada",
+        "display_name": "Ada Chan",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "branding",
+          "illustration"
+        ],
+        "rating_x100": 490,
+        "completed_orders": 212,
+        "verified": true,
+        "profile_text": "Brand identity designer, 8 years."
+      },
+      "persona": {
+        "opening_minor": 190000,
+        "floor_minor": 170000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_ben",
+        "display_name": "Ben Ho",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design",
+          "food branding"
+        ],
+        "rating_x100": 470,
+        "completed_orders": 96,
+        "verified": true,
+        "profile_text": "I design logos for restaurants and cafes."
+      },
+      "persona": {
+        "opening_minor": 150000,
+        "floor_minor": 130000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    },
+    {
+      "profile": {
+        "platform": "simulated",
+        "freelancer_id": "f_lin",
+        "display_name": "Lin Ip",
+        "categories": [
+          "logo_design"
+        ],
+        "skills": [
+          "logo",
+          "design",
+          "cafe branding"
+        ],
+        "rating_x100": 475,
+        "completed_orders": 88,
+        "verified": true,
+        "profile_text": "Logo designer for food and drink brands."
+      },
+      "persona": {
+        "opening_minor": 140000,
+        "floor_minor": 120000,
+        "style": "friendly and concise",
+        "scripted_replies": []
+      }
+    }
+  ],
+  "expect": {
+    "status": "no_hire",
+    "max_spent_minor": 0,
+    "rules_seen": [
+      "R9"
+    ],
+    "rules_not_seen": [
+      "OK_HIRE"
+    ],
+    "hired": null
+  }
+}
