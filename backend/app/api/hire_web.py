@@ -4,7 +4,8 @@
   GET  /hire/categories  categories the simulated marketplace offers
   POST /hire/vision      {text} -> draft brief (nothing registered yet)
   POST /hire/register    reviewed brief -> signed mandate; the decision log starts
-  POST /hire/search      agent searches GigMarket (SIMULATED), messages sellers, proposes a hire
+  POST /hire/search      agent searches GigMarket (SIMULATED), messages sellers, proposes a hire.
+                         With an API key this is Claude (runs in the background; poll /hire/state).
   POST /hire/confirm     USER confirms -> gate -> money held in SIMULATED escrow
   POST /hire/deliver     SIMULATED delivery -> file type + word count check
   POST /hire/release     USER approves -> gate re-check -> money released
@@ -30,10 +31,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.agent.hiring import FlowError, HiringSession, RegisterForm
 from app.agent.stub import stub_llm
 from app.ledger.keys import demo_key
-from app.llm import LLMClient, mode_from_env
+from app.llm import LLMClient, load_env_file, mode_from_env
 from app.marketplace.catalog import CATEGORIES
 from verify_log import verify_lines
 
+load_env_file()   # ANTHROPIC_API_KEY and GIGGUARD_LLM_MODE from .env, before the session is created
 STATIC = Path(__file__).resolve().parent / "static"
 router = APIRouter()
 
@@ -106,7 +108,26 @@ def register(form: RegisterForm):
 
 @router.post("/hire/search")
 def search():
-    return _step(lambda s: s.search())
+    """Rule-based search runs inline. The Claude agent can take a minute, so it runs in a
+    background thread and the page polls /hire/state to show what it is doing."""
+    with HOLDER.lock:
+        s = HOLDER.session
+        try:
+            s.begin_search()
+        except FlowError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        if not s.uses_agent:
+            s.search()
+        else:
+            threading.Thread(target=_search_in_background, args=(s,), daemon=True).start()
+        return s.snapshot()
+
+
+def _search_in_background(s: HiringSession) -> None:
+    try:
+        s.search()
+    except Exception:  # noqa: BLE001 - search() already set stage=no_match and logged it
+        pass
 
 
 @router.post("/hire/confirm")

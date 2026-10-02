@@ -33,7 +33,9 @@ from app.api.hire_web import router as hire_router
 from app.api.web import router as web_router
 from app.harness import RunResult, load_scenarios, run_scenario
 from app.ledger.keys import demo_key, load_or_create_key
-from app.llm import agent_model, fast_model, mode_from_env
+from app.llm import agent_model, fast_model, load_env_file, mode_from_env
+
+load_env_file()   # picks up ANTHROPIC_API_KEY / GIGGUARD_LLM_MODE from .env if present
 from verify_log import verify_lines
 
 RUNS_DIR = Path(__file__).resolve().parents[3] / "data" / "runs"

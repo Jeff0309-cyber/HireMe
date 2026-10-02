@@ -6,391 +6,496 @@
 <title>GigGuard</title>
 <style>
   :root {
-    --bg: #f5f6f8; --card: #fff; --text: #15171c; --muted: #5f6775; --line: #e3e6eb; --soft: #f0f2f5;
-    --accent: #2f54eb; --accent-text: #fff; --ok: #0f7b45; --ok-bg: #e2f5eb; --bad: #b42318; --bad-bg: #fde8e6;
-    --warn: #8a5200; --warn-bg: #fff3d6; --sim: #5b21b6; --sim-bg: #ede9fe;
-    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --bg: #f7f6f3; --surface: #ffffff; --surface-2: #f1f0ec; --text: #111111; --muted: #6b6b6b; --line: #e6e4df;
+    --ink: #111111; --ink-text: #ffffff; --ring: rgba(17, 17, 17, .08);
+    --ok: #12804a; --ok-bg: #e6f6ee; --bad: #c0322b; --bad-bg: #fdecea; --warn: #9a5a00; --warn-bg: #fff3dc;
+    --sim: #6d3fd8; --sim-bg: #f0eaff;
+    --g1: #4f88ff; --g2: #fb65c2; --g3: #ff8f1b;
+    --radius: 22px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 40px rgba(0,0,0,.08);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #101217; --card: #191c23; --text: #e7e9ee; --muted: #9aa2b1; --line: #2a2f39; --soft: #20242c;
-      --accent: #7c93ff; --accent-text: #0b0d12; --ok: #4ade80; --ok-bg: #11301f; --bad: #f87171; --bad-bg: #3a1513;
-      --warn: #fbbf24; --warn-bg: #352708; --sim: #c4b5fd; --sim-bg: #2a1f4d;
+      --bg: #0d0d0f; --surface: #17171a; --surface-2: #202024; --text: #f2f2f2; --muted: #9b9ba3; --line: #2a2a30;
+      --ink: #f2f2f2; --ink-text: #111111; --ring: rgba(255,255,255,.08);
+      --ok: #4ade80; --ok-bg: #11291c; --bad: #f87171; --bad-bg: #331514; --warn: #fbbf24; --warn-bg: #2f2208;
+      --sim: #c4b5fd; --sim-bg: #261c43; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 40px rgba(0,0,0,.45);
     }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line);
-           padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  header h1 { font-size: 17px; margin: 0; }
-  header .spacer { flex: 1; }
-  main { max-width: 860px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; }
-  section.done { opacity: .92; }
-  section[hidden] { display: none; }
-  h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
-          background: var(--accent); color: var(--accent-text); font-size: 12px; font-weight: 700; flex: none; }
-  section.done .step { background: var(--ok); }
-  .muted { color: var(--muted); font-size: 13px; }
-  textarea, input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
-                            border-radius: 9px; padding: 9px 11px; width: 100%; }
-  textarea { min-height: 120px; resize: vertical; }
-  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
-  label.check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
-  label.check input { width: auto; }
-  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
-  .form .wide { grid-column: 1 / -1; }
-  button { font: inherit; font-weight: 600; border-radius: 10px; padding: 10px 16px; border: 1px solid var(--line);
-           background: var(--card); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-  button.link { border: none; background: none; color: var(--accent); padding: 4px 0; }
-  button:disabled { opacity: .5; cursor: default; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-  .chip { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line);
-          cursor: pointer; color: var(--text); font-weight: 500; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-  .ok, .allow { color: var(--ok); background: var(--ok-bg); }
-  .bad, .deny { color: var(--bad); background: var(--bad-bg); }
-  .warn, .escalate { color: var(--warn); background: var(--warn-bg); }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+         -webkit-font-smoothing: antialiased; }
+  button { font: inherit; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+
+  /* ---------- shared bits ---------- */
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 17px; letter-spacing: -.01em; }
+  .mark { width: 22px; height: 22px; border-radius: 7px; background: conic-gradient(from 210deg, var(--g1), var(--g2), var(--g3), var(--g1));
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+          background: var(--surface); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .pill.live .dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
   .sim { color: var(--sim); background: var(--sim-bg); }
-  .neutral { color: var(--muted); background: var(--soft); }
-  .notes { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
-  .notes li::before { content: "✓ "; color: var(--ok); }
-  .notes li.w::before { content: "⚠ "; color: var(--warn); }
-  .notes li.w { color: var(--warn); }
-  .card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
-  .card.picked { border: 2px solid var(--accent); }
-  .card .top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
-  .card .title { font-weight: 600; overflow-wrap: anywhere; }
-  .facts { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
-  .facts b { color: var(--text); font-weight: 600; }
-  .gigs { display: grid; gap: 8px; margin-top: 10px; }
-  .thread { display: grid; gap: 8px; margin-top: 10px; }
-  .bubble { max-width: 88%; padding: 9px 12px; border-radius: 12px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .bubble.agent { justify-self: end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
-  .bubble.seller { justify-self: start; background: var(--soft); border-bottom-left-radius: 4px; }
-  .bubble.flagged { background: var(--warn-bg); border: 1px solid var(--warn); }
-  .bubble .who { font-size: 11.5px; opacity: .8; margin-bottom: 2px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .total { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; margin-top: 8px; }
-  .total .sum { font-weight: 700; font-size: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
-  .reason { font: 12px/1.45 var(--mono); overflow-wrap: anywhere; }
-  .tracker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
-  .tracker div { text-align: center; font-size: 12px; padding: 8px 4px; border-radius: 8px; background: var(--soft); color: var(--muted); }
-  .tracker div.on { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
-  .tracker div.held { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
-  .result { border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 13.5px; overflow-wrap: anywhere; }
-  .error { color: var(--bad); font-size: 13.5px; margin-top: 8px; white-space: pre-wrap; }
-  details summary { cursor: pointer; font-weight: 600; font-size: 14px; }
-  ol.log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 5px; }
-  ol.log li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 13px; min-width: 0; }
-  ol.log li.flagged { border-left: 4px solid var(--warn); background: var(--warn-bg); }
+  .ok { color: var(--ok); background: var(--ok-bg); }
+  .bad { color: var(--bad); background: var(--bad-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  .neutral { color: var(--muted); background: var(--surface-2); }
+  .btn { border-radius: 999px; padding: 10px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-weight: 600; }
+  .btn.primary { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .mono { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+  .error { color: var(--bad); font-size: 13.5px; white-space: pre-wrap; }
+
+  /* ---------- landing ---------- */
+  #landing { min-height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+  .glow { position: absolute; left: 50%; bottom: -30vh; width: min(1400px, 160vw); height: 80vh; transform: translateX(-50%);
+          background: radial-gradient(closest-side at 30% 55%, var(--g1), transparent),
+                      radial-gradient(closest-side at 52% 45%, var(--g2), transparent),
+                      radial-gradient(closest-side at 72% 60%, var(--g3), transparent);
+          filter: blur(60px); opacity: .55; pointer-events: none; }
+  .topnav { display: flex; align-items: center; gap: 10px; padding: 16px 22px; position: relative; z-index: 1; }
+  .topnav .spacer { flex: 1; }
+  .hero { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 24px 16px 18vh; text-align: center; }
+  .hero h1 { font-size: clamp(34px, 6vw, 58px); line-height: 1.05; letter-spacing: -.035em; margin: 0 0 14px; font-weight: 650; }
+  .hero p.lead { font-size: clamp(16px, 2vw, 19px); color: var(--muted); margin: 0 0 28px; max-width: 560px; }
+  .prompt { width: min(720px, 100%); background: var(--surface); border-radius: 28px; padding: 16px 16px 12px 20px;
+            box-shadow: var(--shadow); border: 1px solid var(--ring); text-align: left; }
+  .prompt textarea { width: 100%; border: none; outline: none; resize: none; background: transparent; color: var(--text);
+                     font: inherit; font-size: 16.5px; min-height: 78px; }
+  .prompt textarea::placeholder { color: var(--muted); }
+  .prompt .bar { display: flex; align-items: center; gap: 8px; }
+  .prompt .bar .spacer { flex: 1; }
+  .send { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--ink); color: var(--ink-text);
+          display: grid; place-items: center; font-size: 18px; font-weight: 700; }
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 18px; width: min(760px, 100%); }
+  .example { border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(6px);
+             color: var(--text); border-radius: 999px; padding: 7px 13px; font-size: 13px; }
+  .trust { margin-top: 22px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-size: 13px; color: var(--muted); }
+
+  /* ---------- workspace ---------- */
+  #workspace { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  .wbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); min-width: 0; }
+  .wbar .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .wbar .spacer { flex: 1; }
+  .split { display: grid; grid-template-columns: minmax(340px, 440px) 1fr; min-height: 0; }
+  .chat { display: grid; grid-template-rows: 1fr auto; min-height: 0; border-right: 1px solid var(--line); background: var(--bg); }
+  .thread { overflow-y: auto; padding: 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 100%; font-size: 14.5px; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; max-width: 88%; background: var(--surface-2); border-radius: 18px 18px 6px 18px; padding: 10px 14px; white-space: pre-wrap; }
+  .msg.agent { display: grid; grid-template-columns: 24px 1fr; gap: 10px; }
+  .msg.agent .av { width: 24px; height: 24px; border-radius: 8px; background: conic-gradient(from 210deg, var(--g1), var(--g2), var(--g3), var(--g1)); }
+  .msg.agent .body { display: grid; gap: 6px; min-width: 0; }
+  .step-line { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); }
+  .step-line .ic { flex: none; width: 18px; text-align: center; }
+  .step-line.ok .ic { color: var(--ok); } .step-line.bad .ic { color: var(--bad); }
+  .seller { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 9px 12px; font-size: 13.5px; }
+  .seller.flagged { border-color: var(--warn); background: var(--warn-bg); }
+  .seller .who { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--text); animation: spin .8s linear infinite; display: inline-block; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .composer { padding: 12px 14px 14px; border-top: 1px solid var(--line); background: var(--surface); display: grid; gap: 8px; }
+  .composer .hint { font-size: 12.5px; color: var(--muted); }
+  .composer .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .composer .actions .btn.primary { flex: 1; min-width: 180px; }
+
+  .panel { display: grid; grid-template-rows: auto 1fr; min-height: 0; background: var(--surface); }
+  .tabs { display: flex; gap: 4px; padding: 10px 14px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tab { border: none; background: transparent; color: var(--muted); padding: 7px 13px; border-radius: 999px; font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+  .tab.on { background: var(--surface-2); color: var(--text); }
+  .tab .count { font-weight: 500; opacity: .7; }
+  .pane { overflow-y: auto; padding: 20px; }
+  .pane h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -.01em; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+  .card.hero-card { border: 1.5px solid var(--ink); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 14px; }
+  .form .wide { grid-column: 1 / -1; }
+  label { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+  label.check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+  input, select { font: inherit; font-size: 14.5px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; }
+  label.check input { width: auto; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--g1) 45%, transparent); outline-offset: 1px; }
+  .notes { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 4px; font-size: 13px; }
+  .notes li::before { content: "✓  "; color: var(--ok); font-weight: 700; }
+  .notes li.w { color: var(--warn); } .notes li.w::before { content: "!  "; color: var(--warn); }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; }
+  .kv dt { font-size: 12px; color: var(--muted); } .kv dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .gig .top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .gig .t { font-weight: 600; line-height: 1.35; }
+  .gig .meta { display: flex; gap: 6px 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .gig .meta b { color: var(--text); }
+  .gig .why { font-size: 12.5px; color: var(--muted); }
+  .gig.picked { border: 1.5px solid var(--ink); }
+  .sum { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 14.5px; }
+  .sum .total { font-weight: 700; font-size: 18px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .tracker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .tracker div { text-align: center; font-size: 11.5px; font-weight: 700; padding: 9px 4px; border-radius: 10px; background: var(--surface-2); color: var(--muted); letter-spacing: .02em; }
+  .tracker div.on { background: var(--ok-bg); color: var(--ok); }
+  .tracker div.held { background: var(--bad-bg); color: var(--bad); }
+  .callout { border-radius: 14px; padding: 12px 14px; font-size: 14px; }
+  ol.log { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+  ol.log li { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; font-size: 13px; min-width: 0; }
+  ol.log li.flagged { border-left: 4px solid var(--warn); }
   ol.log li.denied { border-left: 4px solid var(--bad); }
-  ol.log .meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
-  .hash { font: 12px var(--mono); overflow-wrap: anywhere; }
-  .pinned { border: 1px solid var(--accent); border-radius: 10px; padding: 8px 10px; margin-top: 10px; }
-  @media (max-width: 560px) { main { padding: 10px; } section { padding: 14px; } .tracker { grid-template-columns: repeat(2, 1fr); } }
+  ol.log .m { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
+
+  @media (max-width: 640px) {
+    .topnav { padding: 12px 14px; flex-wrap: wrap; }
+    .topnav .sim-note { display: none; }
+    #prompt-hint { display: none; }
+    .hero { padding-bottom: 10vh; }
+    .example { font-size: 12.5px; padding: 6px 11px; }
+    .trust { gap: 6px 14px; font-size: 12.5px; }
+    .wbar .pill { display: none; }
+  }
+  @media (max-width: 860px) {
+    #workspace { height: auto; min-height: 100%; }
+    .split { grid-template-columns: 1fr; }
+    .chat { border-right: none; border-bottom: 1px solid var(--line); }
+    .thread { max-height: 60vh; }
+    .pane { padding: 16px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>GigGuard</h1>
-  <span class="badge sim">SIMULATED marketplace · no real money</span>
-  <span class="spacer"></span>
-  <button class="link" id="reset">Start over</button>
-</header>
 
-<main>
-  <!-- 1. Vision -->
-  <section id="s-vision">
-    <h2><span class="step">1</span> What do you want done?</h2>
-    <p class="muted">Describe the job in your own words. Mention a budget in HKD and a deadline if you have them.</p>
-    <textarea id="vision" placeholder="e.g. I want a logo for my new bubble tea shop in Sham Shui Po. Budget HKD 2,000, within 7 days. It must work in Chinese and English."></textarea>
-    <div class="chips" id="examples"></div>
-    <div class="row"><button class="primary" id="btn-vision">Register my idea</button></div>
-    <div class="error" id="err-vision"></div>
-  </section>
-
-  <!-- 2. Review & sign -->
-  <section id="s-brief" hidden>
-    <h2><span class="step">2</span> Check the task, then sign it</h2>
-    <p class="muted">This is what the agent understood. Nothing happens until you sign. The agent can never spend more than the budget you sign.</p>
-    <ul class="notes" id="brief-notes"></ul>
-    <div class="form">
-      <label class="wide">Task title <input id="f-title"></label>
-      <label>Category <select id="f-category"></select></label>
-      <label>Budget (HKD, max total incl. fees) <input id="f-budget" inputmode="decimal" placeholder="2000"></label>
-      <label>Deadline (days) <input id="f-deadline" type="number" min="1" max="365"></label>
-      <label class="words">Min words <input id="f-minw" type="number" min="0"></label>
-      <label class="words">Max words <input id="f-maxw" type="number" min="1"></label>
-      <label>Minimum seller rating
-        <select id="f-rating"><option value="400">4.0 ★</option><option value="450" selected>4.5 ★</option><option value="480">4.8 ★</option></select>
-      </label>
-      <label>Minimum completed orders <input id="f-orders" type="number" min="0" value="10"></label>
-      <label class="check"><input type="checkbox" id="f-verified" checked> Verified sellers only</label>
-      <label class="check"><input type="checkbox" id="f-milestones"> Pay in two milestones</label>
-    </div>
-    <div class="row"><button class="primary" id="btn-register">Sign &amp; register task</button></div>
-    <div class="error" id="err-brief"></div>
-    <div id="registered"></div>
-  </section>
-
-  <!-- 3. Search -->
-  <section id="s-search" hidden>
-    <h2><span class="step">3</span> Find a freelancer</h2>
-    <p class="muted">The agent browses GigMarket (a SIMULATED Fiverr-style marketplace), checks every gig against your rules, and messages the best ones.</p>
-    <div class="row"><button class="primary" id="btn-search">Find freelancers</button></div>
-    <div class="error" id="err-search"></div>
-    <div id="search-summary"></div>
-    <div class="thread" id="thread"></div>
-    <details id="all-gigs" hidden><summary id="all-gigs-label"></summary><div class="gigs" id="gigs"></div></details>
-  </section>
-
-  <!-- 4. Confirm & pay -->
-  <section id="s-confirm" hidden>
-    <h2><span class="step">4</span> Confirm and pay</h2>
-    <p class="muted">The agent's proposal. Your money goes into escrow only when you confirm, and is paid out only after you approve the work.</p>
-    <div id="proposal"></div>
-    <div class="row" id="confirm-row">
-      <button class="primary" id="btn-confirm">Confirm &amp; pay into escrow</button>
-      <button id="btn-cancel">Not this one, start over</button>
-    </div>
-    <div id="confirm-result"></div>
-  </section>
-
-  <!-- 5. Delivery & release -->
-  <section id="s-delivery" hidden>
-    <h2><span class="step">5</span> Delivery and payout</h2>
-    <div class="tracker" id="tracker"></div>
-    <div class="row">
-      <button class="primary" id="btn-deliver">Simulate the delivery</button>
-      <button class="primary" id="btn-release" hidden>Approve &amp; release payment</button>
-    </div>
-    <div id="delivery-result"></div>
-  </section>
-
-  <!-- Log -->
-  <section id="s-log" hidden>
-    <details id="log-details">
-      <summary>Decision log <span id="log-count" class="muted"></span> <span id="log-verify"></span></summary>
-      <p class="muted">Every step is hash-chained and Ed25519-signed. Anyone can verify it offline with verifier/verify_log.py.</p>
-      <div class="pinned"><b>Pinned head hash</b><div class="hash" id="head"></div></div>
-      <div class="row">
-        <select id="tamper-kind" style="width:auto">
-          <option value="edit">Edit a decision</option><option value="delete">Delete an entry</option>
-          <option value="reorder">Reorder entries</option><option value="swap_signature">Swap a signature</option>
-          <option value="truncate">Cut off the tail</option>
-        </select>
-        <button id="btn-tamper">Tamper with a copy</button>
+<!-- ============ Landing ============ -->
+<div id="landing">
+  <div class="glow" aria-hidden="true"></div>
+  <nav class="topnav">
+    <div class="brand"><span class="mark" aria-hidden="true"></span>GigGuard</div>
+    <span class="spacer"></span>
+    <span class="pill" id="ai-pill-landing"><span class="dot"></span><span>…</span></span>
+    <span class="pill"><span class="tag sim">SIMULATED</span><span class="sim-note">marketplace · no real money</span></span>
+  </nav>
+  <div class="hero">
+    <h1>Hire a freelancer,<br>without the risk</h1>
+    <p class="lead">Describe the job. An AI agent finds the right person, and nothing is paid until you say so.</p>
+    <form class="prompt" id="prompt-form">
+      <textarea id="vision" rows="3" placeholder="Describe the job you need done, with a budget in HKD and a deadline…" aria-label="Describe the job"></textarea>
+      <div class="bar">
+        <span class="small muted" id="prompt-hint">Budget and deadline help the agent. Nothing is spent without your sign-off.</span>
+        <span class="spacer"></span>
+        <button class="send" id="btn-vision" type="submit" aria-label="Start">↑</button>
       </div>
-      <div id="tamper-result"></div>
-      <ol class="log" id="log"></ol>
-    </details>
-  </section>
-</main>
+    </form>
+    <div class="error" id="err-vision"></div>
+    <div class="examples" id="examples"></div>
+    <div class="trust"><span>✓ Signed budget the agent can't exceed</span><span>✓ You confirm every payment</span><span>✓ Tamper-evident decision log</span></div>
+  </div>
+</div>
+
+<!-- ============ Workspace ============ -->
+<div id="workspace" hidden>
+  <div class="wbar">
+    <div class="brand"><span class="mark" aria-hidden="true"></span></div>
+    <span class="title" id="w-title">New task</span>
+    <span class="tag neutral" id="w-stage"></span>
+    <span class="spacer"></span>
+    <span class="pill" id="ai-pill"><span class="dot"></span><span>…</span></span>
+    <button class="btn ghost" id="btn-new">New task</button>
+  </div>
+  <div class="split">
+    <!-- chat -->
+    <div class="chat">
+      <div class="thread" id="thread" aria-live="polite"></div>
+      <div class="composer">
+        <div class="hint" id="next-hint"></div>
+        <div class="actions" id="next-actions"></div>
+        <div class="error" id="err-action"></div>
+      </div>
+    </div>
+    <!-- panel -->
+    <div class="panel">
+      <div class="tabs" role="tablist">
+        <button class="tab" data-tab="task">Task</button>
+        <button class="tab" data-tab="freelancers">Freelancers <span class="count" id="count-gigs"></span></button>
+        <button class="tab" data-tab="payment">Payment</button>
+        <button class="tab" data-tab="log">Log <span class="count" id="count-log"></span></button>
+      </div>
+      <div class="pane" id="pane-task"></div>
+      <div class="pane" id="pane-freelancers" hidden></div>
+      <div class="pane" id="pane-payment" hidden></div>
+      <div class="pane" id="pane-log" hidden></div>
+    </div>
+  </div>
+</div>
 
 <script>
 "use strict";
-// Seller text is UNTRUSTED: everything is rendered with text nodes, never as HTML.
+// Seller and model text is UNTRUSTED: everything is rendered with text nodes, never parsed as HTML.
 const $ = (id) => document.getElementById(id);
 function el(tag, attrs, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
-    if (k === "class") n.className = v; else if (k === "hidden") n.hidden = !!v; else n.setAttribute(k, v);
+    if (k === "class") n.className = v; else if (k === "hidden") n.hidden = !!v; else if (k.startsWith("on")) n[k] = v; else n.setAttribute(k, v);
   }
   for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
   return n;
 }
-const hkd = (m) => m === null || m === undefined ? "—" :
-  `HKD ${Math.floor(Math.abs(m) / 100).toLocaleString("en-US")}.${String(Math.abs(m) % 100).padStart(2, "0")}`;
+const hkd = (m) => m === null || m === undefined ? "—" : `HKD ${Math.floor(Math.abs(m) / 100).toLocaleString("en-US")}.${String(Math.abs(m) % 100).padStart(2, "0")}`;
 const stars = (x) => `${Math.floor(x / 100)}.${String(x % 100).padStart(2, "0")}★`;
-const badge = (text, cls) => el("span", { class: `badge ${cls}` }, text);
-const sim = () => badge("SIMULATED", "sim");
+const tag = (t, cls) => el("span", { class: `tag ${cls}` }, t);
+const SIM = () => tag("SIMULATED", "sim");
 
 const EXAMPLES = [
-  "I want a logo for my new bubble tea shop in Sham Shui Po. Budget HKD 2,000, within 7 days. It must work in Chinese and English.",
-  "We need 300-400 words of menu descriptions for our cafe, up to HKD 1,500, in two weeks.",
+  "A logo for my new bubble tea shop in Sham Shui Po. Budget HKD 2,000, within 7 days. It must work in Chinese and English.",
+  "300-400 words of menu descriptions for our cafe, up to HKD 1,500, in two weeks.",
   "Edit 5 Instagram reels from my shop footage. Budget HKD 3,000, in 10 days.",
   "Translate my restaurant menu into Japanese, budget HKD 800, within 5 days.",
 ];
-
 const REASONS = {
-  "R4.min_rating": "rating below your minimum", "R4.min_completed_orders": "too few completed orders",
-  "R4.verified": "not verified", "R4.blocked": "blocked", "TOO_SLOW": "can't deliver by your deadline",
-  "OVER_BUDGET": "every package is over your budget", "FLAG.OFF_PLATFORM": "listing asks for off-platform payment",
-  "FLAG.FALSE_AUTHORITY": "listing contains instructions aimed at AI agents", "FLAG.EXTRA_CHARGE": "listing mentions extra charges",
-  "UNCLEAR_PRICE": "reply named two prices (upsell)", "NO_PRICE": "reply had no price",
-  "PRICE_DIFFERS_FROM_LISTING": "quoted a different price than listed", "COULD_NOT_MESSAGE": "couldn't be messaged",
+  "R4.min_rating": "rating below your minimum", "R4.min_completed_orders": "too few completed orders", "R4.verified": "not verified",
+  "R4.blocked": "blocked", "TOO_SLOW": "can't deliver by your deadline", "OVER_BUDGET": "every package is over budget",
+  "FLAG.OFF_PLATFORM": "listing asks for off-platform payment", "FLAG.FALSE_AUTHORITY": "listing has instructions aimed at AI agents",
+  "FLAG.EXTRA_CHARGE": "listing mentions extra charges", "UNCLEAR_PRICE": "pushed a pricier package", "NO_PRICE": "reply had no price",
+  "PRICE_DIFFERS_FROM_LISTING": "quoted a different price", "COULD_NOT_MESSAGE": "couldn't be messaged",
   "FLAGGED:OFF_PLATFORM": "asked to be paid off-platform", "FLAGGED:FALSE_AUTHORITY": "claimed you pre-approved payment",
   "FLAGGED:EXTRA_CHARGE": "added extra charges",
 };
-const why = (code) => REASONS[code] || code.replace(/^FLAGGED:/, "flagged: ");
+const why = (c) => REASONS[c] || c.replace(/^FLAGGED:/, "flagged: ");
+const STAGE_LABEL = { drafted: "Review", registered: "Signed", searching: "Searching…", no_match: "No match", proposed: "Awaiting you",
+  funded: "In escrow", escalated: "Needs human", denied: "Refused", delivered: "Delivered", held: "On hold", released: "Paid" };
 
 async function api(method, path, body) {
-  const res = await fetch(path, { method, headers: { "Content-Type": "application/json" },
-                                  body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const d = data.detail;
-    throw new Error(Array.isArray(d) ? d.map((x) => `${(x.loc || []).slice(1).join(".")}: ${x.msg}`).join("\n") : d || res.statusText);
+    throw new Error(Array.isArray(d) ? d.map((x) => `${(x.loc || []).slice(1).join(".") || "input"}: ${x.msg}`).join("\n") : d || res.statusText);
   }
   return data;
 }
 
-let categories = [];
-let S = null;   // last snapshot
+let S = null, categories = [], logOut = null, activeTab = "task", userPickedTab = false, poll = null, tamperOut = null;
 
-function busy(btn, on) { btn.disabled = on; }
-
-async function act(btn, errId, fn) {
-  if (errId) $(errId).textContent = "";
-  busy(btn, true);
-  try { S = await fn(); render(); await refreshLog(); }
-  catch (e) { if (errId) $(errId).textContent = e.message; }
-  finally { busy(btn, false); }
-}
-
-// --- rendering -----------------------------------------------------------------------------------
-
-const ORDER = ["new", "drafted", "registered", "no_match", "proposed", "funded", "escalated", "denied", "delivered", "held", "released"];
-const at = (stage) => ORDER.indexOf(S.stage) >= ORDER.indexOf(stage);
-
+// ---------------- rendering ----------------
 function render() {
-  const st = S.stage;
-  $("s-brief").hidden = !at("drafted");
-  $("s-search").hidden = !at("registered");
-  $("s-confirm").hidden = !S.proposal;
-  $("s-delivery").hidden = !["funded", "delivered", "held", "released"].includes(st) || !S.order;
-  $("s-log").hidden = !S.mandate;
-  $("s-vision").classList.toggle("done", at("drafted"));
-  $("s-brief").classList.toggle("done", at("registered"));
-  renderBrief(); renderSearch(); renderProposal(); renderDelivery();
+  const inWorkspace = S && S.stage !== "new";
+  $("landing").hidden = inWorkspace; $("workspace").hidden = !inWorkspace;
+  renderAI();
+  if (!inWorkspace) return;
+  $("w-title").textContent = (S.mandate && S.mandate.signed_mandate.mandate.task.split("\n")[0]) || (S.brief && S.brief.title) || "New task";
+  $("w-stage").textContent = STAGE_LABEL[S.stage] || S.stage;
+  $("w-stage").className = `tag ${["released", "funded", "delivered"].includes(S.stage) ? "ok" : ["denied", "held"].includes(S.stage) ? "bad" : "neutral"}`;
+  if (!userPickedTab) activeTab = autoTab();
+  renderTabs(); renderThread(); renderComposer(); renderTask(); renderFreelancers(); renderPayment(); renderLog();
+  if (S.stage === "searching") startPolling(); else stopPolling();
 }
 
-function renderBrief() {
+function renderAI() {
+  const ai = S && S.ai, live = ai && ai.agent === "claude";
+  for (const id of ["ai-pill", "ai-pill-landing"]) {
+    const p = $(id); p.className = `pill ${live ? "live" : ""}`;
+    p.lastChild.textContent = !ai ? "…" : live ? `AI agent · ${ai.model}` : "AI off · keyword rules";
+    p.title = live ? "A real Claude agent searches and messages sellers." : "Add ANTHROPIC_API_KEY and GIGGUARD_LLM_MODE=live to .env to use the Claude agent.";
+  }
+}
+
+function autoTab() {
+  if (["drafted", "registered"].includes(S.stage)) return "task";
+  if (["searching", "no_match"].includes(S.stage)) return "freelancers";
+  return "payment";
+}
+
+function renderTabs() {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === activeTab));
+  for (const t of ["task", "freelancers", "payment", "log"]) $(`pane-${t}`).hidden = t !== activeTab;
+  $("count-gigs").textContent = S.assessments.length ? `· ${S.assessments.length}` : "";
+  $("count-log").textContent = logOut ? `· ${logOut.entries.length}` : "";
+}
+
+function agentMsg(...kids) { return el("div", { class: "msg agent" }, el("span", { class: "av" }), el("div", { class: "body" }, ...kids)); }
+function stepLine(icon, text, cls) { return el("div", { class: `step-line ${cls || ""}` }, el("span", { class: "ic" }, icon), el("span", {}, text)); }
+
+function renderThread() {
+  const t = $("thread"), items = [];
   const b = S.brief;
-  const locked = !!S.mandate;
-  for (const id of ["f-title", "f-category", "f-budget", "f-deadline", "f-minw", "f-maxw", "f-rating", "f-orders", "f-verified", "f-milestones", "btn-register"])
-    $(id).disabled = locked;
-  if (b && !locked && $("f-title").dataset.for !== b.vision) {
-    $("f-title").dataset.for = b.vision;
-    $("f-title").value = b.title;
-    $("f-category").value = b.category || "";
-    $("f-budget").value = b.budget_minor ? (b.budget_minor % 100 ? (b.budget_minor / 100).toFixed(2) : String(b.budget_minor / 100)) : "";
-    $("f-deadline").value = b.deadline_days || "";
-    $("f-minw").value = b.min_words || ""; $("f-maxw").value = b.max_words || "";
-  }
   if (b) {
-    $("brief-notes").replaceChildren(
-      el("li", {}, `Read by: ${b.source === "claude" ? "Claude" : "keyword rules (no AI)"}`),
-      ...b.notes.map((n) => el("li", {}, n)), ...b.warnings.map((w) => el("li", { class: "w" }, w)));
+    items.push(el("div", { class: "msg user" }, b.vision));
+    items.push(agentMsg(el("div", {}, `I read your idea${b.source === "claude" ? " with Claude" : ""}. Here's the task I drafted — check it in the `, el("b", {}, "Task"), " tab, change anything, then sign it."),
+      ...b.warnings.map((w) => stepLine("!", w, "bad"))));
   }
+  if (S.mandate) items.push(agentMsg(stepLine("✓", `Signed. Budget ${hkd(S.mandate.signed_mandate.mandate.policy.budget_cap.amount_minor)} is now a hard limit.`, "ok")));
+
+  // Agent activity (Claude) or rule-based summary, interleaved with seller conversation.
+  const convo = [...S.conversation];
+  if (S.activity.length) {
+    for (const a of S.activity) {
+      if (a.kind === "agent") items.push(agentMsg(el("div", {}, a.text)));
+      else if (a.kind === "status") items.push(agentMsg(stepLine("•", a.text)));
+      else if (a.kind === "error") items.push(agentMsg(stepLine("✕", a.text, "bad")));
+      else if (a.kind === "tool") {
+        const label = { search_gigs: "Searching GigMarket", message_seller: `Messaging ${a.input.gig_id} about ${a.input.package}`,
+                        propose_hire: `Proposing ${a.input.gig_id} (${a.input.package})`, finish_without_hire: "Stopping" }[a.name] || a.name;
+        items.push(agentMsg(stepLine("→", label)));
+        if (a.name === "message_seller") {
+          const out = convo.findIndex((m) => m.from === "agent" && m.gig_id === a.input.gig_id);
+          if (out >= 0) items.push(sellerBubble(convo.splice(out, 1)[0], true));
+        }
+      } else if (a.kind === "result") {
+        items.push(agentMsg(stepLine(a.ok ? "✓" : "✕", a.summary, a.ok ? "ok" : "bad")));
+        if (a.name === "message_seller") {
+          const inn = convo.findIndex((m) => m.from === "seller");
+          if (inn >= 0) items.push(sellerBubble(convo.splice(inn, 1)[0]));
+        }
+      }
+    }
+  } else if (S.assessments.length) {
+    const n = (s) => S.assessments.filter((a) => a.status === s).length;
+    items.push(agentMsg(stepLine("✓", `Checked ${S.assessments.length} gigs on GigMarket: ${n("excluded")} ruled out by your rules or red flags.`, "ok")));
+  }
+  for (const m of convo) if (!(S.stage === "delivered" || S.stage === "released") || m !== convo[convo.length - 1]) items.push(sellerBubble(m, m.from === "agent"));
+  if (S.stage === "searching") items.push(agentMsg(el("div", { class: "muted small" }, el("span", { class: "spinner" }), "  working…")));
+  if (S.stage === "no_match") items.push(agentMsg(stepLine("✕", S.no_match_reason || "No suitable freelancer found.", "bad")));
+  if (S.proposal) items.push(agentMsg(el("div", {}, `I recommend `, el("b", {}, S.proposal.seller), ` for ${hkd(S.proposal.total_minor)} — see the `, el("b", {}, "Payment"), " tab."),
+    S.proposal.why ? el("div", { class: "muted small" }, "Agent's note: ", S.proposal.why) : null));
+  if (S.order && S.order.history.includes("FUNDED")) items.push(agentMsg(stepLine("✓", `Paid into escrow. The money stays there until you approve the work.`, "ok")));
+  if (["delivered", "released", "held"].includes(S.stage)) {
+    const last = S.conversation[S.conversation.length - 1];
+    if (last && last.from === "seller") items.push(sellerBubble(last));
+  }
+  if (S.stage === "released") items.push(agentMsg(stepLine("✓", `Done. ${hkd(S.escrow.released_minor)} released to the freelancer.`, "ok")));
+  if (S.stage === "held") items.push(agentMsg(stepLine("✕", "Payment is on hold: the delivery failed the check or the gate refused. Nothing was paid out.", "bad")));
+  if (["denied", "escalated"].includes(S.stage)) items.push(agentMsg(stepLine("✕", `The policy gate refused the payment: ${S.last_decision.reason}`, "bad")));
+
+  const atBottom = t.scrollHeight - t.scrollTop - t.clientHeight < 60;
+  t.replaceChildren(...items);
+  if (atBottom || S.stage === "searching") t.scrollTop = t.scrollHeight;
+}
+
+function sellerBubble(m, outgoing) {
+  if (outgoing || m.from === "agent") return el("div", { class: "msg user small" }, el("div", { class: "muted small" }, "Agent → seller"), m.text);
+  return el("div", { class: `seller ${m.flags.length ? "flagged" : ""}` },
+    el("div", { class: "who" }, m.seller, SIM(), tag("UNTRUSTED", "neutral"), ...m.flags.map((f) => tag(`⚠ ${f}`, "warn"))), m.text);
+}
+
+function action(label, fn, primary = true) { return el("button", { class: `btn ${primary ? "primary" : ""}`, onclick: (e) => run(e.currentTarget, fn) }, label); }
+
+function renderComposer() {
+  const hint = $("next-hint"), acts = [];
+  let h = "";
+  switch (S.stage) {
+    case "drafted": h = "Check the task on the right, then sign it. The agent can't spend more than this budget."; acts.push(action("Sign & register task", registerTask)); break;
+    case "registered": h = S.ai.agent === "claude" ? "Claude will search, message sellers and recommend one." : "The agent will search, message sellers and recommend one.";
+      acts.push(action("Find me a freelancer", () => api("POST", "/hire/search"))); break;
+    case "searching": h = "The agent is working. You can watch every step here."; break;
+    case "no_match": h = "Try a bigger budget or a longer deadline (start a new task), or search again."; acts.push(action("Search again", () => api("POST", "/hire/search")), action("New task", newTask, false)); break;
+    case "proposed": h = "Your money goes into escrow only when you confirm."; acts.push(action(`Confirm & pay ${hkd(S.proposal.total_minor)}`, () => api("POST", "/hire/confirm")), action("Not this one", newTask, false)); break;
+    case "funded": h = "SIMULATED: pretend the freelancer has finished."; acts.push(action("Simulate the delivery", () => api("POST", "/hire/deliver"))); break;
+    case "delivered": h = "Happy with the work? The gate re-checks before paying out."; acts.push(action("Approve & release payment", () => api("POST", "/hire/release"))); break;
+    case "released": h = "All done. The full signed record is in the Log tab."; acts.push(action("Start a new task", newTask)); break;
+    default: h = "This task has ended."; acts.push(action("Start a new task", newTask));
+  }
+  hint.textContent = h; $("next-actions").replaceChildren(...acts);
+}
+
+function renderTask() {
+  const p = $("pane-task"), b = S.brief, m = S.mandate;
+  if (m) {
+    const pol = m.signed_mandate.mandate.policy, e = pol.eligibility;
+    p.replaceChildren(el("h3", {}, "Signed task"), el("p", { class: "muted small" }, "These limits are signed with your key. The policy gate enforces them on every action."),
+      el("div", { class: "card" }, el("dl", { class: "kv" },
+        ...[["Budget (incl. fees)", hkd(pol.budget_cap.amount_minor)], ["Deadline", `${S.form.deadline_days} days`],
+            ["Category", (categories.find((c) => c.id === pol.allowed_categories[0]) || {}).label || pol.allowed_categories[0]],
+            ["Sellers", `≥ ${stars(e.min_rating_x100)}, ≥ ${e.min_completed_orders} orders${e.verified_required ? ", verified" : ""}`],
+            ["Payment", `${pol.milestone_only ? "2 milestones" : "single payment"}, on-platform only`], ["Valid until", pol.expires_at.slice(0, 10)]]
+          .map(([k, v]) => el("div", {}, el("dt", {}, k), el("dd", {}, v)))),
+        el("div", { class: "mono muted" }, `policy_hash ${m.policy_hash}`)));
+    return;
+  }
+  if (!b) { p.replaceChildren(el("div", { class: "empty" }, "Your task will appear here.")); return; }
+  const keep = (id) => (document.getElementById(id) || {}).value;
+  const was = { title: keep("f-title"), budget: keep("f-budget"), deadline: keep("f-deadline") };
+  const fresh = p.dataset.for !== b.vision; p.dataset.for = b.vision;
+  const val = (fv, dv) => (fresh || fv === undefined ? dv : fv);
+  const budgetDefault = b.budget_minor ? (b.budget_minor % 100 ? (b.budget_minor / 100).toFixed(2) : String(b.budget_minor / 100)) : "";
+  const catSel = el("select", { id: "f-category", onchange: toggleWords }, el("option", { value: "" }, "Choose…"),
+    ...categories.map((c) => el("option", { value: c.id }, c.label)));
+  p.replaceChildren(el("h3", {}, "Check the task"), el("p", { class: "muted small" }, "Edit anything, then sign it from the chat."),
+    el("ul", { class: "notes" }, el("li", {}, `Read by ${b.source === "claude" ? "Claude" : "keyword rules"}`), ...b.notes.map((n) => el("li", {}, n)), ...b.warnings.map((w) => el("li", { class: "w" }, w))),
+    el("div", { class: "form" },
+      el("label", { class: "wide" }, "Task title", el("input", { id: "f-title", value: val(was.title, b.title) })),
+      el("label", {}, "Category", catSel),
+      el("label", {}, "Budget, HKD (max incl. fees)", el("input", { id: "f-budget", inputmode: "decimal", placeholder: "2000", value: val(was.budget, budgetDefault) })),
+      el("label", {}, "Deadline (days)", el("input", { id: "f-deadline", type: "number", min: "1", max: "365", value: val(was.deadline, b.deadline_days || "") })),
+      el("label", { class: "words" }, "Min words", el("input", { id: "f-minw", type: "number", min: "0", value: b.min_words || "" })),
+      el("label", { class: "words" }, "Max words", el("input", { id: "f-maxw", type: "number", min: "1", value: b.max_words || "" })),
+      el("label", {}, "Minimum seller rating", el("select", { id: "f-rating" }, el("option", { value: "400" }, "4.0 ★"), el("option", { value: "450", selected: "" }, "4.5 ★"), el("option", { value: "480" }, "4.8 ★"))),
+      el("label", {}, "Minimum completed orders", el("input", { id: "f-orders", type: "number", min: "0", value: "10" })),
+      el("label", { class: "check" }, el("input", { id: "f-verified", type: "checkbox", checked: "" }), "Verified sellers only"),
+      el("label", { class: "check" }, el("input", { id: "f-milestones", type: "checkbox" }), "Pay in two milestones")));
+  catSel.value = b.category || "";
   toggleWords();
-  const m = S.mandate;
-  $("registered").replaceChildren(m ? el("div", { class: "result ok" },
-    el("b", {}, "Registered and signed. "), `Budget ${hkd(m.signed_mandate.mandate.policy.budget_cap.amount_minor)}, `,
-    `on-platform payments only, sellers ≥ ${stars(m.signed_mandate.mandate.policy.eligibility.min_rating_x100)}.`,
-    el("div", { class: "hash" }, `policy_hash ${m.policy_hash}`)) : "");
 }
 
 function toggleWords() {
-  const cat = categories.find((c) => c.id === $("f-category").value);
-  const show = cat && cat.deliverable === "writing";
-  document.querySelectorAll("label.words").forEach((l) => (l.hidden = !show));
+  const sel = $("f-category"); if (!sel) return;
+  const c = categories.find((x) => x.id === sel.value);
+  document.querySelectorAll("label.words").forEach((l) => (l.hidden = !(c && c.deliverable === "writing")));
 }
 
-function gigCard(a, extra) {
-  const statusChip = {
-    picked: badge("Picked", "ok"), candidate: badge("Not contacted", "neutral"),
-    contacted_rejected: badge("Skipped after messaging", "warn"), excluded: badge("Excluded", "bad"),
-  }[a.status];
-  const reasons = a.status === "excluded" ? a.excluded_because.map(why).join(" · ")
-                : a.rejected_because ? why(a.rejected_because) : "";
-  return el("div", { class: `card ${a.status === "picked" ? "picked" : ""}` },
-    el("div", { class: "top" }, el("span", { class: "title" }, a.title), statusChip),
-    el("div", { class: "facts" }, sim(), el("span", {}, el("b", {}, a.seller)), el("span", {}, stars(a.rating_x100)),
-       el("span", {}, `${a.orders} orders`), el("span", {}, a.verified ? "verified" : "not verified"),
-       a.package ? el("span", {}, `${a.package}: `, el("b", {}, hkd(a.total_minor)), ` · ${a.delivery_days} days`) : null),
-    reasons ? el("div", { class: "muted" }, reasons) : null, extra || null);
+function gigCard(a) {
+  const chip = { picked: tag("Recommended", "ok"), candidate: tag("Not contacted", "neutral"), contacted_rejected: tag("Skipped", "warn"), excluded: tag("Ruled out", "bad") }[a.status];
+  const reasons = a.status === "excluded" ? a.excluded_because.map(why).join(" · ") : a.rejected_because ? why(a.rejected_because) : "";
+  return el("div", { class: `card gig ${a.status === "picked" ? "picked" : ""}` },
+    el("div", { class: "top" }, el("span", { class: "t" }, a.title), chip),
+    el("div", { class: "meta" }, SIM(), el("b", {}, a.seller), stars(a.rating_x100), `${a.orders} orders`, a.verified ? "verified" : "not verified"),
+    a.package ? el("div", { class: "meta" }, `${a.package} · `, el("b", {}, hkd(a.total_minor)), ` · ${a.delivery_days} days`) : null,
+    reasons ? el("div", { class: "why" }, reasons) : null);
 }
 
-function renderSearch() {
-  const as = S.assessments || [];
-  $("btn-search").disabled = !["registered", "no_match"].includes(S.stage);
-  $("btn-search").textContent = S.stage === "no_match" ? "Search again" : "Find freelancers";
-  if (!as.length) { $("search-summary").replaceChildren(); $("thread").replaceChildren(); $("all-gigs").hidden = true; return; }
-  const count = (s) => as.filter((a) => a.status === s).length;
-  $("search-summary").replaceChildren(el("div", { class: "result neutral" },
-    `${as.length} gigs looked at · ${count("excluded")} excluded by your rules or red flags · `,
-    `${count("contacted_rejected")} skipped after messaging · `,
-    S.proposal ? el("b", {}, "1 picked") : el("b", {}, "no suitable freelancer found — try a bigger budget or longer deadline")));
-  $("thread").replaceChildren(...S.conversation.map((m) => el("div", { class: `bubble ${m.from} ${m.flags.length ? "flagged" : ""}` },
-    el("div", { class: "who" }, m.from === "agent" ? "Agent" : [m.seller, sim(), badge("UNTRUSTED", "neutral"),
-      ...m.flags.map((f) => badge(`⚠ ${f}`, "warn"))]), m.text)));
-  $("all-gigs").hidden = false;
-  $("all-gigs-label").textContent = `All ${as.length} gigs the agent considered`;
+function renderFreelancers() {
+  const p = $("pane-freelancers"), as = S.assessments;
+  if (!as.length) { p.replaceChildren(el("div", { class: "empty" }, S.stage === "searching" ? "Searching GigMarket…" : "Gigs the agent looks at will appear here.")); return; }
   const order = { picked: 0, contacted_rejected: 1, candidate: 2, excluded: 3 };
-  $("gigs").replaceChildren(...[...as].sort((a, b) => order[a.status] - order[b.status]).map((a) => gigCard(a)));
+  p.replaceChildren(el("h3", {}, "Freelancers considered"),
+    el("p", { class: "muted small" }, "GigMarket is a SIMULATED Fiverr-style marketplace. Every gig is checked against your signed rules and for red flags."),
+    el("div", { class: "grid2" }, ...[...as].sort((x, y) => order[x.status] - order[y.status]).map(gigCard)));
 }
 
-function renderProposal() {
-  const p = S.proposal;
-  if (!p) return;
-  const pre = p.precheck;
-  $("proposal").replaceChildren(el("div", { class: "card picked" },
-    el("div", { class: "top" }, el("span", { class: "title" }, p.title), sim()),
-    el("div", { class: "facts" }, el("span", {}, el("b", {}, p.seller)), el("span", {}, `${p.package} package`),
-       el("span", {}, `delivers in ${p.delivery_days} days`)),
-    el("div", { class: "total" }, el("span", {}, "Price"), el("span", {}, hkd(p.price_minor)),
-       el("span", {}, "Marketplace fee (SIMULATED rate)"), el("span", {}, hkd(p.fee_minor)),
-       el("span", { class: "sum" }, "Total"), el("span", { class: "sum" }, hkd(p.total_minor))),
-    p.milestones.length ? el("div", { class: "muted" }, `Paid in milestones: ${p.milestones.map(hkd).join(" + ")}`) : null,
-    el("div", { class: "row" }, badge(`Gate pre-check: ${pre.outcome.toUpperCase()}`, pre.outcome), el("span", { class: "reason" }, pre.reason))));
-  const decided = S.stage !== "proposed";
-  $("confirm-row").hidden = decided;
-  const d = S.last_decision && decided && ["funded", "denied", "escalated", "delivered", "held", "released"].includes(S.stage) ? S.last_decision : null;
-  const first = S.order && S.order.history.includes("FUNDED");
-  $("confirm-result").replaceChildren(!decided ? "" : el("div", { class: `result ${first ? "ok" : S.stage === "escalated" ? "warn" : "bad"}` },
-    el("b", {}, first ? "Paid into escrow. " : S.stage === "escalated" ? "Needs a human decision. " : "Payment refused by the gate. "),
-    first ? `${hkd(p.total_minor)} is held in SIMULATED escrow until you approve the work.` : "",
-    d && !first ? el("div", { class: "reason" }, d.reason) : null));
+function renderPayment() {
+  const p = $("pane-payment"), pr = S.proposal;
+  if (!pr) { p.replaceChildren(el("div", { class: "empty" }, "The agent's recommendation and your payment will appear here.")); return; }
+  const pre = pr.precheck, h = S.order ? S.order.history : [];
+  const steps = ["CREATED", "FUNDED", "DELIVERED", "RELEASED"];
+  p.replaceChildren(el("h3", {}, "Payment"),
+    el("p", { class: "muted small" }, "Money is held in SIMULATED escrow when you confirm and paid out only after you approve the work."),
+    el("div", { class: "card hero-card" },
+      el("div", { class: "top", style: "display:flex;justify-content:space-between;gap:8px" }, el("b", {}, pr.title), SIM()),
+      el("div", { class: "muted small" }, `${pr.seller} · ${pr.package} package · delivers in ${pr.delivery_days} days`),
+      el("div", { class: "sum" }, el("span", {}, "Price"), el("span", {}, hkd(pr.price_minor)), el("span", {}, "Marketplace fee (SIMULATED rate)"), el("span", {}, hkd(pr.fee_minor)),
+        el("span", { class: "total" }, "Total"), el("span", { class: "total" }, hkd(pr.total_minor))),
+      pr.milestones.length ? el("div", { class: "muted small" }, `In milestones: ${pr.milestones.map(hkd).join(" + ")}`) : null,
+      el("div", {}, tag(`Gate pre-check: ${pre.outcome.toUpperCase()}`, pre.outcome === "allow" ? "ok" : "bad")), el("div", { class: "mono muted" }, pre.reason)),
+    S.order ? el("div", { style: "margin-top:14px" }, el("div", { class: "tracker" }, ...steps.map((s) => el("div", { class: h.includes(s) ? "on" : "" }, s)), ...(h.includes("HELD") ? [el("div", { class: "held" }, "HELD")] : []))) : null,
+    S.last_decision && S.stage !== "proposed" ? el("div", { class: `callout ${["denied", "escalated", "held"].includes(S.stage) ? "bad" : "ok"}`, style: "margin-top:12px" },
+      el("div", { class: "mono" }, S.last_decision.reason)) : null);
 }
 
-function renderDelivery() {
-  if (!S.order) return;
-  const h = S.order.history, steps = ["CREATED", "FUNDED", "DELIVERED", "RELEASED"];
-  $("tracker").replaceChildren(...steps.map((s) => el("div", { class: h.includes(s) ? "on" : "" }, s)),
-    ...(h.includes("HELD") ? [el("div", { class: "held" }, "HELD")] : []));
-  $("btn-deliver").hidden = S.stage !== "funded";
-  $("btn-release").hidden = S.stage !== "delivered";
-  const parts = [];
-  if (["delivered", "released", "held"].includes(S.stage)) {
-    const last = S.conversation[S.conversation.length - 1];
-    if (last && last.from === "seller") parts.push(el("div", { class: "bubble seller" }, el("div", { class: "who" }, last.seller, sim()), last.text));
-  }
-  if (S.stage === "released") parts.push(el("div", { class: "result ok" }, el("b", {}, "Done. "),
-    `${hkd(S.escrow.released_minor)} released to the freelancer (SIMULATED). `, el("div", { class: "reason" }, S.last_decision.reason)));
-  if (S.stage === "held") parts.push(el("div", { class: "result bad" }, el("b", {}, "Payment held. "),
-    "The delivery failed the check or the gate refused the release. No money was paid out."));
-  $("delivery-result").replaceChildren(...parts);
-}
-
-async function refreshLog() {
-  if (!S || !S.mandate) return;
-  const out = await api("GET", "/hire/log");
-  $("head").textContent = out.head_hash;
-  $("log-count").textContent = `(${out.entries.length} entries)`;
-  $("log-verify").replaceChildren(badge(out.verify.ok ? "VERIFIES" : "BROKEN", out.verify.ok ? "ok" : "bad"));
-  $("log").replaceChildren(...[...out.entries].reverse().map((e) => {
-    const flagged = e.event_type === "message_flagged";
-    const text = e.reason || summarize(e);
-    return el("li", { class: flagged ? "flagged" : e.decision === "deny" ? "denied" : "" },
-      el("div", { class: "meta" }, `#${e.seq}`, e.event_type, e.decision ? badge(e.decision.toUpperCase(), e.decision) : null,
-         e.rule_id ? el("b", {}, e.rule_id) : null),
-      el("div", { class: e.reason ? "reason" : "" }, text));
-  }));
+function renderLog() {
+  const p = $("pane-log");
+  if (!logOut) { p.replaceChildren(el("div", { class: "empty" }, "The signed decision log starts when you sign the task.")); return; }
+  const box = (r, title, warn) => el("div", { class: `callout ${r.ok ? (warn ? "warn" : "ok") : "bad"}`, style: "margin-top:8px" }, el("b", {}, title), el("div", { class: "mono" }, `${r.ok ? "PASS" : "FAIL"}: ${r.message}`));
+  const kind = el("select", { id: "tamper-kind", style: "width:auto" }, ...[["edit", "Edit a decision"], ["delete", "Delete an entry"], ["reorder", "Reorder entries"], ["swap_signature", "Swap a signature"], ["truncate", "Cut off the tail"]].map(([v, t]) => el("option", { value: v }, t)));
+  p.replaceChildren(el("h3", {}, "Decision log"),
+    el("p", { class: "muted small" }, "Every step is hash-chained and Ed25519-signed. Anyone can verify it offline with verifier/verify_log.py."),
+    el("div", { class: "card" }, el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, el("b", {}, "Pinned head hash"), tag(logOut.verify.ok ? "VERIFIES" : "BROKEN", logOut.verify.ok ? "ok" : "bad")),
+      el("div", { class: "mono" }, logOut.head_hash),
+      el("div", { style: "display:flex;gap:8px;flex-wrap:wrap" }, kind, el("button", { class: "btn", onclick: tamper }, "Tamper with a copy")),
+      ...(tamperOut ? [box(tamperOut.original, "Original log"), box(tamperOut.tampered, `Tampered copy: ${tamperOut.what}`),
+        ...(tamperOut.without_pinned_head ? [box(tamperOut.without_pinned_head, "Same copy without the pinned head", true)] : [])] : [])),
+    el("ol", { class: "log" }, ...[...logOut.entries].reverse().map((e) => el("li", { class: e.event_type === "message_flagged" ? "flagged" : e.decision === "deny" ? "denied" : "" },
+      el("div", { class: "m" }, `#${e.seq}`, e.event_type, e.decision ? tag(e.decision.toUpperCase(), e.decision === "allow" ? "ok" : e.decision === "deny" ? "bad" : "warn") : null, e.rule_id ? el("b", {}, e.rule_id) : null),
+      el("div", { class: e.reason ? "mono" : "" }, e.reason || summarize(e))))));
 }
 
 function summarize(e) {
@@ -400,6 +505,8 @@ function summarize(e) {
     case "gig_assessed": return `${i.gig_id} ${i.seller}: ${i.status}${i.excluded_because.length ? ` (${i.excluded_because.join(", ")})` : ""}`;
     case "message_received": return `[UNTRUSTED] ${i.message.text}`;
     case "message_flagged": return `⚠ ${i.flags.join(", ")} → action taken: ${i.action_taken}`;
+    case "agent_note": return `[AI] ${i.text}`;
+    case "agent_tool": return `tool: ${i.tool}`;
     case "seller_skipped": return `Skipped ${i.gig_id}: ${why(i.code)}`;
     case "escrow_transition": return `${i.order_id}: ${i.from} → ${i.to}`;
     case "deliverable_checked": return `${i.filename}: ${i.ok ? "passes" : i.problem}`;
@@ -407,47 +514,63 @@ function summarize(e) {
   }
 }
 
-// --- actions --------------------------------------------------------------------------------------
+// ---------------- actions ----------------
+async function run(btn, fn) {
+  $("err-action").textContent = "";
+  if (btn) btn.disabled = true;
+  try { const out = await fn(); if (out) S = out; userPickedTab = false; await refreshLog(); render(); }
+  catch (e) { $("err-action").textContent = e.message; }
+  finally { if (btn) btn.disabled = false; }
+}
 
-$("btn-vision").onclick = () => act($("btn-vision"), "err-vision", () => api("POST", "/hire/vision", { text: $("vision").value }));
-$("btn-register").onclick = () => act($("btn-register"), "err-brief", () => {
-  const num = (id) => ($(id).value === "" ? null : Number($(id).value));
+function registerTask() {
+  const num = (id) => { const v = $(id) && $(id).value; return v === "" || v === undefined ? null : Number(v); };
+  const words = $("f-minw") && !$("f-minw").closest("label").hidden;
   return api("POST", "/hire/register", {
-    title: $("f-title").value, category: $("f-category").value, budget_hkd: $("f-budget").value.trim(),
-    deadline_days: num("f-deadline"), min_words: $("f-minw").closest("label").hidden ? null : num("f-minw"),
-    max_words: $("f-maxw").closest("label").hidden ? null : num("f-maxw"),
-    min_rating_x100: Number($("f-rating").value), min_completed_orders: num("f-orders") ?? 0,
-    verified_required: $("f-verified").checked, milestone_only: $("f-milestones").checked,
+    title: $("f-title").value, category: $("f-category").value, budget_hkd: $("f-budget").value.trim(), deadline_days: num("f-deadline"),
+    min_words: words ? num("f-minw") : null, max_words: words ? num("f-maxw") : null, min_rating_x100: Number($("f-rating").value),
+    min_completed_orders: num("f-orders") ?? 0, verified_required: $("f-verified").checked, milestone_only: $("f-milestones").checked,
   });
-});
-$("btn-search").onclick = () => act($("btn-search"), "err-search", () => api("POST", "/hire/search"));
-$("btn-confirm").onclick = () => act($("btn-confirm"), null, () => api("POST", "/hire/confirm"));
-$("btn-deliver").onclick = () => act($("btn-deliver"), null, () => api("POST", "/hire/deliver"));
-$("btn-release").onclick = () => act($("btn-release"), null, () => api("POST", "/hire/release"));
-const startOver = async () => { S = await api("POST", "/hire/reset"); $("f-title").dataset.for = ""; $("vision").value = "";
-  $("tamper-result").replaceChildren(); render(); window.scrollTo(0, 0); };
-$("reset").onclick = startOver;
-$("btn-cancel").onclick = startOver;
-$("f-category").onchange = toggleWords;
-$("btn-tamper").onclick = async () => {
-  const out = await api("POST", "/hire/tamper", { kind: $("tamper-kind").value });
-  const box = (r, title, warn) => el("div", { class: `result ${r.ok ? (warn ? "warn" : "ok") : "bad"}` },
-    el("b", {}, title), el("div", { class: "reason" }, `${r.ok ? "PASS" : "FAIL"}: ${r.message}`));
-  $("tamper-result").replaceChildren(box(out.original, "Original log"), box(out.tampered, `Tampered copy: ${out.what}`),
-    out.without_pinned_head ? box(out.without_pinned_head, "Same copy without the pinned head (why we pin it)", true) : "");
+}
+
+async function newTask() { tamperOut = null; logOut = null; $("vision").value = ""; return api("POST", "/hire/reset"); }
+
+async function tamper() {
+  try { tamperOut = await api("POST", "/hire/tamper", { kind: $("tamper-kind").value }); renderLog(); }
+  catch (e) { $("err-action").textContent = e.message; }
+}
+
+async function refreshLog() {
+  logOut = S && S.mandate ? await api("GET", "/hire/log").catch(() => null) : null;
+}
+
+function startPolling() {
+  if (poll) return;
+  poll = setInterval(async () => {
+    try { S = await api("GET", "/hire/state"); await refreshLog(); render(); } catch (_) { /* keep polling */ }
+  }, 900);
+}
+function stopPolling() { if (poll) { clearInterval(poll); poll = null; } }
+
+$("prompt-form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("err-vision").textContent = "";
+  $("btn-vision").disabled = true;
+  try { S = await api("POST", "/hire/vision", { text: $("vision").value }); logOut = null; tamperOut = null; userPickedTab = false; render(); }
+  catch (err) { $("err-vision").textContent = err.message; }
+  finally { $("btn-vision").disabled = false; }
 };
+$("vision").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("prompt-form").requestSubmit(); } });
+$("btn-new").onclick = (e) => run(e.currentTarget, newTask);
+document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => { activeTab = t.dataset.tab; userPickedTab = true; renderTabs(); }));
 
 (async () => {
-  $("examples").replaceChildren(...EXAMPLES.map((t) => {
-    const c = el("button", { class: "chip", type: "button" }, t.length > 48 ? t.slice(0, 46) + "…" : t);
-    c.onclick = () => { $("vision").value = t; $("vision").focus(); };
-    return c;
-  }));
+  $("examples").replaceChildren(...EXAMPLES.map((t) => el("button", { class: "example", type: "button", onclick: () => { $("vision").value = t; $("vision").focus(); } },
+    t.split(/[.,]/)[0])));
   categories = await api("GET", "/hire/categories");
-  $("f-category").replaceChildren(el("option", { value: "" }, "Choose…"), ...categories.map((c) => el("option", { value: c.id }, c.label)));
   S = await api("GET", "/hire/state");
-  if (S.brief) $("vision").value = S.brief.vision;
-  render(); await refreshLog();
+  await refreshLog();
+  render();
 })();
 </script>
 </body>

@@ -1,3 +1,8 @@
+import os
+
+# Tests never call a real model, even if a developer's .env says GIGGUARD_LLM_MODE=live.
+os.environ["GIGGUARD_LLM_MODE"] = "stub"
+
 from datetime import datetime, timezone
 
 import pytest

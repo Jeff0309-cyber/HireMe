@@ -28,7 +28,7 @@ from app.contracts import Decision, HireProposal, Mandate, Message, Milestone, M
 from app.escrow import compute_fee
 from app.escrow.escrow import DeliverableSpec, Escrow
 from app.ledger import ChainLog
-from app.llm import LLMClient
+from app.llm import LLMClient, agent_model
 from app.marketplace.catalog import (CATEGORIES, PLATFORM, PLATFORM_NAME, Gig, delivery_message, gig, reply_to_inquiry,
                                      search, simulated_deliverable)
 from app.observed import load_observed
@@ -100,6 +100,7 @@ class ProposalView:
     delivery_days: int
     milestones: list[int]
     precheck: dict
+    why: Optional[str] = None      # the AI agent's own explanation (model text, not a gate reason)
 
 
 class HiringSession:
@@ -120,6 +121,9 @@ class HiringSession:
         self.last_decision: Optional[dict] = None
         self.observed = load_observed()
         self._n = 0
+        self.activity: list[dict] = []          # what the agent is doing, for the UI
+        self.no_match_reason: Optional[str] = None
+        self.last_inbound: dict[str, Message] = {}
 
     # --- helpers ---------------------------------------------------------------------------------
 
@@ -174,6 +178,7 @@ class HiringSession:
                                                 "flags": list(flags), "action_taken": "none"})
         self.conversation.append({"from": "seller", "gig_id": g.gig_id, "seller": g.seller.display_name,
                                   "text": text, "flags": list(flags), "label": "SIMULATED"})
+        self.last_inbound[g.gig_id] = msg
         return msg, flags
 
     # --- steps ---------------------------------------------------------------------------------------
@@ -231,40 +236,91 @@ class HiringSession:
         self.stage = "registered"
         return self.signed
 
-    def search(self) -> list[Assessment]:
+    # --- search: Claude agent when a model is configured, deterministic rules otherwise --------------
+
+    @property
+    def uses_agent(self) -> bool:
+        return self.llm is not None and self.llm.mode in ("live", "offline")
+
+    def begin_search(self) -> None:
+        """Mark the session as searching (the API then runs search() in the background)."""
         self._need("registered", "no_match")
-        policy, form = self.policy, self.form
-        keywords = {w for w in re.findall(r"[a-z]+", (form.title + " " + (self.brief.vision if self.brief else "")).lower())
-                    if len(w) > 3 and w not in STOPWORDS}
+        self.stage = "searching"
+
+    def search(self) -> list[Assessment]:
+        if self.stage != "searching":
+            self.begin_search()
+        form = self.form
+        limit = self._spend_limit()
+        self.log.append("search_started", {"platform": PLATFORM, "platform_name": PLATFORM_NAME, "category": form.category,
+                                           "max_total_minor": limit, "deadline_days": form.deadline_days,
+                                           "agent": "claude" if self.uses_agent else "rules", "label": "SIMULATED"})
+        self.assessments, self.conversation, self.proposal, self.activity = [], [], None, []
+        self.no_match_reason = None
+        try:
+            if self.uses_agent:
+                from app.agent.claude_agent import ClaudeHiringAgent
+                outcome = ClaudeHiringAgent(self).run()
+                if outcome == "error":
+                    self.activity.append({"kind": "status", "text": "Falling back to GigGuard's rule-based search."})
+                    self.assessments, self.conversation, self.proposal = [], [], None
+                    self._search_rules(limit)
+            else:
+                self._search_rules(limit)
+        except Exception:
+            self.stage = "no_match"
+            self.no_match_reason = "Something went wrong during the search. Nothing was paid."
+            self.log.append("no_match", {"code": "SEARCH_ERROR"})
+            raise
+        if self.proposal is None:
+            self.log.append("no_match", {"candidates": sum(a.status != "excluded" for a in self.assessments)})
+            self.no_match_reason = self.no_match_reason or "No seller fits your rules, budget and deadline."
+            self.stage = "no_match"
+        else:
+            self.stage = "proposed"
+        return self.assessments
+
+    def _spend_limit(self) -> int:
+        policy = self.policy
         limit = policy.budget_cap.amount_minor - self.state.committed_minor
         if policy.auto_approve_limit:
             limit = min(limit, policy.auto_approve_limit.amount_minor)
-        self.log.append("search_started", {"platform": PLATFORM, "platform_name": PLATFORM_NAME, "category": form.category,
-                                           "max_total_minor": limit, "deadline_days": form.deadline_days,
-                                           "label": "SIMULATED"})
-        self.assessments, self.conversation, self.proposal = [], [], None
+        return limit
 
+    def _keywords(self) -> set[str]:
+        text = self.form.title + " " + (self.brief.vision if self.brief else "")
+        return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3 and w not in STOPWORDS}
+
+    def assess(self, g: Gig, limit: int) -> Assessment:
+        """GigGuard's own checks on one gig (eligibility, red flags, budget, deadline). Logged."""
+        form, policy = self.form, self.policy
+        words = set(re.findall(r"[a-z]+", (g.title + " " + " ".join(g.tags)).lower()))
+        a = Assessment(gig_id=g.gig_id, title=g.title, seller=g.seller.display_name, seller_id=g.seller.freelancer_id,
+                       rating_x100=g.seller.rating_x100, orders=g.seller.completed_orders, verified=g.seller.verified,
+                       fit=len(self._keywords() & words), package=None, price_minor=None, total_minor=None,
+                       delivery_days=None)
+        a.excluded_because += [f.code for f in eligibility_failures(g.seller, policy)]
+        a.excluded_because += [f"FLAG.{f}" for f in flag_inbound(g.description)]
+        fitting = [p for p in g.packages if p.delivery_days <= form.deadline_days
+                   and p.price_minor + compute_fee(p.price_minor, self.observed).fee_minor <= limit]
+        if fitting:
+            p = min(fitting, key=lambda p: p.price_minor)
+            a.package, a.price_minor, a.delivery_days = p.name, p.price_minor, p.delivery_days
+            a.total_minor = p.price_minor + compute_fee(p.price_minor, self.observed).fee_minor
+        elif all(p.delivery_days > form.deadline_days for p in g.packages):
+            a.excluded_because.append("TOO_SLOW")
+        else:
+            a.excluded_because.append("OVER_BUDGET")
+        a.status = "excluded" if a.excluded_because else "candidate"
+        self.assessments.append(a)
+        self.log.append("gig_assessed", {k: v for k, v in asdict(a).items() if k not in ("title",)})
+        return a
+
+    def _search_rules(self, limit: int) -> None:
+        """Deterministic search: rank by keyword fit, then rating, then price; message the top 3."""
+        form = self.form
         for g in search(form.category):
-            words = set(re.findall(r"[a-z]+", (g.title + " " + " ".join(g.tags)).lower()))
-            a = Assessment(gig_id=g.gig_id, title=g.title, seller=g.seller.display_name, seller_id=g.seller.freelancer_id,
-                           rating_x100=g.seller.rating_x100, orders=g.seller.completed_orders, verified=g.seller.verified,
-                           fit=len(keywords & words), package=None, price_minor=None, total_minor=None, delivery_days=None)
-            a.excluded_because += [f.code for f in eligibility_failures(g.seller, policy)]
-            a.excluded_because += [f"FLAG.{f}" for f in flag_inbound(g.description)]
-            fitting = [p for p in g.packages if p.delivery_days <= form.deadline_days
-                       and p.price_minor + compute_fee(p.price_minor, self.observed).fee_minor <= limit]
-            if fitting:
-                p = min(fitting, key=lambda p: p.price_minor)
-                a.package, a.price_minor, a.delivery_days = p.name, p.price_minor, p.delivery_days
-                a.total_minor = p.price_minor + compute_fee(p.price_minor, self.observed).fee_minor
-            elif all(p.delivery_days > form.deadline_days for p in g.packages):
-                a.excluded_because.append("TOO_SLOW")
-            else:
-                a.excluded_because.append("OVER_BUDGET")
-            a.status = "excluded" if a.excluded_because else "candidate"
-            self.assessments.append(a)
-            self.log.append("gig_assessed", {k: v for k, v in asdict(a).items() if k not in ("title",)})
-
+            self.assess(g, limit)
         ranked = sorted((a for a in self.assessments if a.status == "candidate"),
                         key=lambda a: (-a.fit, -a.rating_x100, a.total_minor, a.gig_id))
         for a in ranked[:MAX_CONTACTS]:
@@ -294,13 +350,6 @@ class HiringSession:
             a.status = "picked"
             self._propose(g, a, reply)
             break
-
-        if self.proposal is None:
-            self.log.append("no_match", {"candidates": len(ranked), "contacted": min(len(ranked), MAX_CONTACTS)})
-            self.stage = "no_match"
-        else:
-            self.stage = "proposed"
-        return self.assessments
 
     def _propose(self, g: Gig, a: Assessment, quote: Message) -> None:
         fee = compute_fee(a.price_minor, self.observed)
@@ -376,5 +425,10 @@ class HiringSession:
                                                     "fees_minor": self.escrow.fees_minor()},
             "last_decision": self.last_decision,
             "platform": {"id": PLATFORM, "name": PLATFORM_NAME, "label": "SIMULATED"},
+            "form": self.form.model_dump() if self.signed else None,
+            "activity": list(self.activity),
+            "no_match_reason": self.no_match_reason,
+            "ai": {"mode": self.llm.mode if self.llm else "stub", "agent": "claude" if self.uses_agent else "rules",
+                   "model": agent_model()},
         }
 

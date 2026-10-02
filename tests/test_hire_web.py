@@ -27,8 +27,8 @@ def test_page(client):
     r = client.get("/")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
     html = r.text
-    for needed in ("What do you want done?", "Register my idea", "Sign &amp; register task", "Find freelancers",
-                   "Confirm &amp; pay into escrow", "Approve &amp; release payment", "SIMULATED", 'name="viewport"'):
+    for needed in ("Hire a freelancer", "Describe the job", "Sign & register task", "Find me a freelancer",
+                   "Confirm & pay", "Approve & release payment", "SIMULATED", 'name="viewport"', "Tamper with a copy"):
         assert needed in html
     assert not re.search(r"<script[^>]+src=|\.(?:inner|outer)HTML\s*=|insertAdjacentHTML|document\.write", html)
 

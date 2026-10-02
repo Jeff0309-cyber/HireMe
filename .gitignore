@@ -9,3 +9,5 @@ data/runs/
 data/demo/
 data/tamper_demo/
 data/mission/
+.env
+data/llm_cache/
