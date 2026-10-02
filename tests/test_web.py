@@ -22,7 +22,7 @@ def default_mandate(client):
 # --- page ---------------------------------------------------------------------------------------------
 
 def test_page_is_one_static_html_file_with_no_build_step(client):
-    r = client.get("/")
+    r = client.get("/mission-demo")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
     html = r.text
     assert 'name="viewport"' in html                                     # mobile-friendly
@@ -34,7 +34,7 @@ def test_page_is_one_static_html_file_with_no_build_step(client):
 
 def test_page_never_renders_data_as_html(client):
     # Freelancer text is untrusted: the page must build DOM with text nodes only.
-    html = client.get("/").text
+    html = client.get("/mission-demo").text
     assert not re.search(r"\.(?:inner|outer)HTML\s*=|insertAdjacentHTML|document\.write|eval\(", html)
 
 

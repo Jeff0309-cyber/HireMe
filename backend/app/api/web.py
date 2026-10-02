@@ -1,6 +1,6 @@
 """Endpoints for the one-page demo (static/index.html, served at /).
 
-  GET  /          the page (vanilla JS, no build step)
+  GET  /mission-demo  the scripted mission page (the main app at / is api/hire_web.py)
   GET  /mandate   the default mandate, as an editable starting point
   POST /mandate   validate a mandate and sign it with the user key -> SignedMandate + policy_hash
   POST /run       run the SIMULATED mission under the last signed mandate (or one passed in)
@@ -66,7 +66,7 @@ def _signed_out(signed: SignedMandate) -> dict[str, Any]:
             "trusted_user_pubkey": USER_KEY.verify_key.encode().hex(), "label": "SIMULATED"}
 
 
-@router.get("/", include_in_schema=False)
+@router.get("/mission-demo", include_in_schema=False)
 def page():
     return FileResponse(STATIC / "index.html", media_type="text/html")
 

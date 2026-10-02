@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GigGuard</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #15171c; --muted: #5f6775; --line: #e3e6eb; --soft: #f0f2f5;
+    --accent: #2f54eb; --accent-text: #fff; --ok: #0f7b45; --ok-bg: #e2f5eb; --bad: #b42318; --bad-bg: #fde8e6;
+    --warn: #8a5200; --warn-bg: #fff3d6; --sim: #5b21b6; --sim-bg: #ede9fe;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101217; --card: #191c23; --text: #e7e9ee; --muted: #9aa2b1; --line: #2a2f39; --soft: #20242c;
+      --accent: #7c93ff; --accent-text: #0b0d12; --ok: #4ade80; --ok-bg: #11301f; --bad: #f87171; --bad-bg: #3a1513;
+      --warn: #fbbf24; --warn-bg: #352708; --sim: #c4b5fd; --sim-bg: #2a1f4d;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line);
+           padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  header .spacer { flex: 1; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; }
+  section.done { opacity: .92; }
+  section[hidden] { display: none; }
+  h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .step { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+          background: var(--accent); color: var(--accent-text); font-size: 12px; font-weight: 700; flex: none; }
+  section.done .step { background: var(--ok); }
+  .muted { color: var(--muted); font-size: 13px; }
+  textarea, input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+                            border-radius: 9px; padding: 9px 11px; width: 100%; }
+  textarea { min-height: 120px; resize: vertical; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  label.check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+  label.check input { width: auto; }
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+  .form .wide { grid-column: 1 / -1; }
+  button { font: inherit; font-weight: 600; border-radius: 10px; padding: 10px 16px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.link { border: none; background: none; color: var(--accent); padding: 4px 0; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line);
+          cursor: pointer; color: var(--text); font-weight: 500; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .ok, .allow { color: var(--ok); background: var(--ok-bg); }
+  .bad, .deny { color: var(--bad); background: var(--bad-bg); }
+  .warn, .escalate { color: var(--warn); background: var(--warn-bg); }
+  .sim { color: var(--sim); background: var(--sim-bg); }
+  .neutral { color: var(--muted); background: var(--soft); }
+  .notes { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+  .notes li::before { content: "✓ "; color: var(--ok); }
+  .notes li.w::before { content: "⚠ "; color: var(--warn); }
+  .notes li.w { color: var(--warn); }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+  .card.picked { border: 2px solid var(--accent); }
+  .card .top { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+  .card .title { font-weight: 600; overflow-wrap: anywhere; }
+  .facts { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .facts b { color: var(--text); font-weight: 600; }
+  .gigs { display: grid; gap: 8px; margin-top: 10px; }
+  .thread { display: grid; gap: 8px; margin-top: 10px; }
+  .bubble { max-width: 88%; padding: 9px 12px; border-radius: 12px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble.agent { justify-self: end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
+  .bubble.seller { justify-self: start; background: var(--soft); border-bottom-left-radius: 4px; }
+  .bubble.flagged { background: var(--warn-bg); border: 1px solid var(--warn); }
+  .bubble .who { font-size: 11.5px; opacity: .8; margin-bottom: 2px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .total { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 14px; margin-top: 8px; }
+  .total .sum { font-weight: 700; font-size: 16px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .reason { font: 12px/1.45 var(--mono); overflow-wrap: anywhere; }
+  .tracker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
+  .tracker div { text-align: center; font-size: 12px; padding: 8px 4px; border-radius: 8px; background: var(--soft); color: var(--muted); }
+  .tracker div.on { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+  .tracker div.held { background: var(--bad-bg); color: var(--bad); font-weight: 700; }
+  .result { border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 13.5px; overflow-wrap: anywhere; }
+  .error { color: var(--bad); font-size: 13.5px; margin-top: 8px; white-space: pre-wrap; }
+  details summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  ol.log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 5px; }
+  ol.log li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 13px; min-width: 0; }
+  ol.log li.flagged { border-left: 4px solid var(--warn); background: var(--warn-bg); }
+  ol.log li.denied { border-left: 4px solid var(--bad); }
+  ol.log .meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+  .hash { font: 12px var(--mono); overflow-wrap: anywhere; }
+  .pinned { border: 1px solid var(--accent); border-radius: 10px; padding: 8px 10px; margin-top: 10px; }
+  @media (max-width: 560px) { main { padding: 10px; } section { padding: 14px; } .tracker { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>GigGuard</h1>
+  <span class="badge sim">SIMULATED marketplace · no real money</span>
+  <span class="spacer"></span>
+  <button class="link" id="reset">Start over</button>
+</header>
+
+<main>
+  <!-- 1. Vision -->
+  <section id="s-vision">
+    <h2><span class="step">1</span> What do you want done?</h2>
+    <p class="muted">Describe the job in your own words. Mention a budget in HKD and a deadline if you have them.</p>
+    <textarea id="vision" placeholder="e.g. I want a logo for my new bubble tea shop in Sham Shui Po. Budget HKD 2,000, within 7 days. It must work in Chinese and English."></textarea>
+    <div class="chips" id="examples"></div>
+    <div class="row"><button class="primary" id="btn-vision">Register my idea</button></div>
+    <div class="error" id="err-vision"></div>
+  </section>
+
+  <!-- 2. Review & sign -->
+  <section id="s-brief" hidden>
+    <h2><span class="step">2</span> Check the task, then sign it</h2>
+    <p class="muted">This is what the agent understood. Nothing happens until you sign. The agent can never spend more than the budget you sign.</p>
+    <ul class="notes" id="brief-notes"></ul>
+    <div class="form">
+      <label class="wide">Task title <input id="f-title"></label>
+      <label>Category <select id="f-category"></select></label>
+      <label>Budget (HKD, max total incl. fees) <input id="f-budget" inputmode="decimal" placeholder="2000"></label>
+      <label>Deadline (days) <input id="f-deadline" type="number" min="1" max="365"></label>
+      <label class="words">Min words <input id="f-minw" type="number" min="0"></label>
+      <label class="words">Max words <input id="f-maxw" type="number" min="1"></label>
+      <label>Minimum seller rating
+        <select id="f-rating"><option value="400">4.0 ★</option><option value="450" selected>4.5 ★</option><option value="480">4.8 ★</option></select>
+      </label>
+      <label>Minimum completed orders <input id="f-orders" type="number" min="0" value="10"></label>
+      <label class="check"><input type="checkbox" id="f-verified" checked> Verified sellers only</label>
+      <label class="check"><input type="checkbox" id="f-milestones"> Pay in two milestones</label>
+    </div>
+    <div class="row"><button class="primary" id="btn-register">Sign &amp; register task</button></div>
+    <div class="error" id="err-brief"></div>
+    <div id="registered"></div>
+  </section>
+
+  <!-- 3. Search -->
+  <section id="s-search" hidden>
+    <h2><span class="step">3</span> Find a freelancer</h2>
+    <p class="muted">The agent browses GigMarket (a SIMULATED Fiverr-style marketplace), checks every gig against your rules, and messages the best ones.</p>
+    <div class="row"><button class="primary" id="btn-search">Find freelancers</button></div>
+    <div class="error" id="err-search"></div>
+    <div id="search-summary"></div>
+    <div class="thread" id="thread"></div>
+    <details id="all-gigs" hidden><summary id="all-gigs-label"></summary><div class="gigs" id="gigs"></div></details>
+  </section>
+
+  <!-- 4. Confirm & pay -->
+  <section id="s-confirm" hidden>
+    <h2><span class="step">4</span> Confirm and pay</h2>
+    <p class="muted">The agent's proposal. Your money goes into escrow only when you confirm, and is paid out only after you approve the work.</p>
+    <div id="proposal"></div>
+    <div class="row" id="confirm-row">
+      <button class="primary" id="btn-confirm">Confirm &amp; pay into escrow</button>
+      <button id="btn-cancel">Not this one, start over</button>
+    </div>
+    <div id="confirm-result"></div>
+  </section>
+
+  <!-- 5. Delivery & release -->
+  <section id="s-delivery" hidden>
+    <h2><span class="step">5</span> Delivery and payout</h2>
+    <div class="tracker" id="tracker"></div>
+    <div class="row">
+      <button class="primary" id="btn-deliver">Simulate the delivery</button>
+      <button class="primary" id="btn-release" hidden>Approve &amp; release payment</button>
+    </div>
+    <div id="delivery-result"></div>
+  </section>
+
+  <!-- Log -->
+  <section id="s-log" hidden>
+    <details id="log-details">
+      <summary>Decision log <span id="log-count" class="muted"></span> <span id="log-verify"></span></summary>
+      <p class="muted">Every step is hash-chained and Ed25519-signed. Anyone can verify it offline with verifier/verify_log.py.</p>
+      <div class="pinned"><b>Pinned head hash</b><div class="hash" id="head"></div></div>
+      <div class="row">
+        <select id="tamper-kind" style="width:auto">
+          <option value="edit">Edit a decision</option><option value="delete">Delete an entry</option>
+          <option value="reorder">Reorder entries</option><option value="swap_signature">Swap a signature</option>
+          <option value="truncate">Cut off the tail</option>
+        </select>
+        <button id="btn-tamper">Tamper with a copy</button>
+      </div>
+      <div id="tamper-result"></div>
+      <ol class="log" id="log"></ol>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+// Seller text is UNTRUSTED: everything is rendered with text nodes, never as HTML.
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") n.className = v; else if (k === "hidden") n.hidden = !!v; else n.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return n;
+}
+const hkd = (m) => m === null || m === undefined ? "—" :
+  `HKD ${Math.floor(Math.abs(m) / 100).toLocaleString("en-US")}.${String(Math.abs(m) % 100).padStart(2, "0")}`;
+const stars = (x) => `${Math.floor(x / 100)}.${String(x % 100).padStart(2, "0")}★`;
+const badge = (text, cls) => el("span", { class: `badge ${cls}` }, text);
+const sim = () => badge("SIMULATED", "sim");
+
+const EXAMPLES = [
+  "I want a logo for my new bubble tea shop in Sham Shui Po. Budget HKD 2,000, within 7 days. It must work in Chinese and English.",
+  "We need 300-400 words of menu descriptions for our cafe, up to HKD 1,500, in two weeks.",
+  "Edit 5 Instagram reels from my shop footage. Budget HKD 3,000, in 10 days.",
+  "Translate my restaurant menu into Japanese, budget HKD 800, within 5 days.",
+];
+
+const REASONS = {
+  "R4.min_rating": "rating below your minimum", "R4.min_completed_orders": "too few completed orders",
+  "R4.verified": "not verified", "R4.blocked": "blocked", "TOO_SLOW": "can't deliver by your deadline",
+  "OVER_BUDGET": "every package is over your budget", "FLAG.OFF_PLATFORM": "listing asks for off-platform payment",
+  "FLAG.FALSE_AUTHORITY": "listing contains instructions aimed at AI agents", "FLAG.EXTRA_CHARGE": "listing mentions extra charges",
+  "UNCLEAR_PRICE": "reply named two prices (upsell)", "NO_PRICE": "reply had no price",
+  "PRICE_DIFFERS_FROM_LISTING": "quoted a different price than listed", "COULD_NOT_MESSAGE": "couldn't be messaged",
+  "FLAGGED:OFF_PLATFORM": "asked to be paid off-platform", "FLAGGED:FALSE_AUTHORITY": "claimed you pre-approved payment",
+  "FLAGGED:EXTRA_CHARGE": "added extra charges",
+};
+const why = (code) => REASONS[code] || code.replace(/^FLAGGED:/, "flagged: ");
+
+async function api(method, path, body) {
+  const res = await fetch(path, { method, headers: { "Content-Type": "application/json" },
+                                  body: body === undefined ? undefined : JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const d = data.detail;
+    throw new Error(Array.isArray(d) ? d.map((x) => `${(x.loc || []).slice(1).join(".")}: ${x.msg}`).join("\n") : d || res.statusText);
+  }
+  return data;
+}
+
+let categories = [];
+let S = null;   // last snapshot
+
+function busy(btn, on) { btn.disabled = on; }
+
+async function act(btn, errId, fn) {
+  if (errId) $(errId).textContent = "";
+  busy(btn, true);
+  try { S = await fn(); render(); await refreshLog(); }
+  catch (e) { if (errId) $(errId).textContent = e.message; }
+  finally { busy(btn, false); }
+}
+
+// --- rendering -----------------------------------------------------------------------------------
+
+const ORDER = ["new", "drafted", "registered", "no_match", "proposed", "funded", "escalated", "denied", "delivered", "held", "released"];
+const at = (stage) => ORDER.indexOf(S.stage) >= ORDER.indexOf(stage);
+
+function render() {
+  const st = S.stage;
+  $("s-brief").hidden = !at("drafted");
+  $("s-search").hidden = !at("registered");
+  $("s-confirm").hidden = !S.proposal;
+  $("s-delivery").hidden = !["funded", "delivered", "held", "released"].includes(st) || !S.order;
+  $("s-log").hidden = !S.mandate;
+  $("s-vision").classList.toggle("done", at("drafted"));
+  $("s-brief").classList.toggle("done", at("registered"));
+  renderBrief(); renderSearch(); renderProposal(); renderDelivery();
+}
+
+function renderBrief() {
+  const b = S.brief;
+  const locked = !!S.mandate;
+  for (const id of ["f-title", "f-category", "f-budget", "f-deadline", "f-minw", "f-maxw", "f-rating", "f-orders", "f-verified", "f-milestones", "btn-register"])
+    $(id).disabled = locked;
+  if (b && !locked && $("f-title").dataset.for !== b.vision) {
+    $("f-title").dataset.for = b.vision;
+    $("f-title").value = b.title;
+    $("f-category").value = b.category || "";
+    $("f-budget").value = b.budget_minor ? (b.budget_minor % 100 ? (b.budget_minor / 100).toFixed(2) : String(b.budget_minor / 100)) : "";
+    $("f-deadline").value = b.deadline_days || "";
+    $("f-minw").value = b.min_words || ""; $("f-maxw").value = b.max_words || "";
+  }
+  if (b) {
+    $("brief-notes").replaceChildren(
+      el("li", {}, `Read by: ${b.source === "claude" ? "Claude" : "keyword rules (no AI)"}`),
+      ...b.notes.map((n) => el("li", {}, n)), ...b.warnings.map((w) => el("li", { class: "w" }, w)));
+  }
+  toggleWords();
+  const m = S.mandate;
+  $("registered").replaceChildren(m ? el("div", { class: "result ok" },
+    el("b", {}, "Registered and signed. "), `Budget ${hkd(m.signed_mandate.mandate.policy.budget_cap.amount_minor)}, `,
+    `on-platform payments only, sellers ≥ ${stars(m.signed_mandate.mandate.policy.eligibility.min_rating_x100)}.`,
+    el("div", { class: "hash" }, `policy_hash ${m.policy_hash}`)) : "");
+}
+
+function toggleWords() {
+  const cat = categories.find((c) => c.id === $("f-category").value);
+  const show = cat && cat.deliverable === "writing";
+  document.querySelectorAll("label.words").forEach((l) => (l.hidden = !show));
+}
+
+function gigCard(a, extra) {
+  const statusChip = {
+    picked: badge("Picked", "ok"), candidate: badge("Not contacted", "neutral"),
+    contacted_rejected: badge("Skipped after messaging", "warn"), excluded: badge("Excluded", "bad"),
+  }[a.status];
+  const reasons = a.status === "excluded" ? a.excluded_because.map(why).join(" · ")
+                : a.rejected_because ? why(a.rejected_because) : "";
+  return el("div", { class: `card ${a.status === "picked" ? "picked" : ""}` },
+    el("div", { class: "top" }, el("span", { class: "title" }, a.title), statusChip),
+    el("div", { class: "facts" }, sim(), el("span", {}, el("b", {}, a.seller)), el("span", {}, stars(a.rating_x100)),
+       el("span", {}, `${a.orders} orders`), el("span", {}, a.verified ? "verified" : "not verified"),
+       a.package ? el("span", {}, `${a.package}: `, el("b", {}, hkd(a.total_minor)), ` · ${a.delivery_days} days`) : null),
+    reasons ? el("div", { class: "muted" }, reasons) : null, extra || null);
+}
+
+function renderSearch() {
+  const as = S.assessments || [];
+  $("btn-search").disabled = !["registered", "no_match"].includes(S.stage);
+  $("btn-search").textContent = S.stage === "no_match" ? "Search again" : "Find freelancers";
+  if (!as.length) { $("search-summary").replaceChildren(); $("thread").replaceChildren(); $("all-gigs").hidden = true; return; }
+  const count = (s) => as.filter((a) => a.status === s).length;
+  $("search-summary").replaceChildren(el("div", { class: "result neutral" },
+    `${as.length} gigs looked at · ${count("excluded")} excluded by your rules or red flags · `,
+    `${count("contacted_rejected")} skipped after messaging · `,
+    S.proposal ? el("b", {}, "1 picked") : el("b", {}, "no suitable freelancer found — try a bigger budget or longer deadline")));
+  $("thread").replaceChildren(...S.conversation.map((m) => el("div", { class: `bubble ${m.from} ${m.flags.length ? "flagged" : ""}` },
+    el("div", { class: "who" }, m.from === "agent" ? "Agent" : [m.seller, sim(), badge("UNTRUSTED", "neutral"),
+      ...m.flags.map((f) => badge(`⚠ ${f}`, "warn"))]), m.text)));
+  $("all-gigs").hidden = false;
+  $("all-gigs-label").textContent = `All ${as.length} gigs the agent considered`;
+  const order = { picked: 0, contacted_rejected: 1, candidate: 2, excluded: 3 };
+  $("gigs").replaceChildren(...[...as].sort((a, b) => order[a.status] - order[b.status]).map((a) => gigCard(a)));
+}
+
+function renderProposal() {
+  const p = S.proposal;
+  if (!p) return;
+  const pre = p.precheck;
+  $("proposal").replaceChildren(el("div", { class: "card picked" },
+    el("div", { class: "top" }, el("span", { class: "title" }, p.title), sim()),
+    el("div", { class: "facts" }, el("span", {}, el("b", {}, p.seller)), el("span", {}, `${p.package} package`),
+       el("span", {}, `delivers in ${p.delivery_days} days`)),
+    el("div", { class: "total" }, el("span", {}, "Price"), el("span", {}, hkd(p.price_minor)),
+       el("span", {}, "Marketplace fee (SIMULATED rate)"), el("span", {}, hkd(p.fee_minor)),
+       el("span", { class: "sum" }, "Total"), el("span", { class: "sum" }, hkd(p.total_minor))),
+    p.milestones.length ? el("div", { class: "muted" }, `Paid in milestones: ${p.milestones.map(hkd).join(" + ")}`) : null,
+    el("div", { class: "row" }, badge(`Gate pre-check: ${pre.outcome.toUpperCase()}`, pre.outcome), el("span", { class: "reason" }, pre.reason))));
+  const decided = S.stage !== "proposed";
+  $("confirm-row").hidden = decided;
+  const d = S.last_decision && decided && ["funded", "denied", "escalated", "delivered", "held", "released"].includes(S.stage) ? S.last_decision : null;
+  const first = S.order && S.order.history.includes("FUNDED");
+  $("confirm-result").replaceChildren(!decided ? "" : el("div", { class: `result ${first ? "ok" : S.stage === "escalated" ? "warn" : "bad"}` },
+    el("b", {}, first ? "Paid into escrow. " : S.stage === "escalated" ? "Needs a human decision. " : "Payment refused by the gate. "),
+    first ? `${hkd(p.total_minor)} is held in SIMULATED escrow until you approve the work.` : "",
+    d && !first ? el("div", { class: "reason" }, d.reason) : null));
+}
+
+function renderDelivery() {
+  if (!S.order) return;
+  const h = S.order.history, steps = ["CREATED", "FUNDED", "DELIVERED", "RELEASED"];
+  $("tracker").replaceChildren(...steps.map((s) => el("div", { class: h.includes(s) ? "on" : "" }, s)),
+    ...(h.includes("HELD") ? [el("div", { class: "held" }, "HELD")] : []));
+  $("btn-deliver").hidden = S.stage !== "funded";
+  $("btn-release").hidden = S.stage !== "delivered";
+  const parts = [];
+  if (["delivered", "released", "held"].includes(S.stage)) {
+    const last = S.conversation[S.conversation.length - 1];
+    if (last && last.from === "seller") parts.push(el("div", { class: "bubble seller" }, el("div", { class: "who" }, last.seller, sim()), last.text));
+  }
+  if (S.stage === "released") parts.push(el("div", { class: "result ok" }, el("b", {}, "Done. "),
+    `${hkd(S.escrow.released_minor)} released to the freelancer (SIMULATED). `, el("div", { class: "reason" }, S.last_decision.reason)));
+  if (S.stage === "held") parts.push(el("div", { class: "result bad" }, el("b", {}, "Payment held. "),
+    "The delivery failed the check or the gate refused the release. No money was paid out."));
+  $("delivery-result").replaceChildren(...parts);
+}
+
+async function refreshLog() {
+  if (!S || !S.mandate) return;
+  const out = await api("GET", "/hire/log");
+  $("head").textContent = out.head_hash;
+  $("log-count").textContent = `(${out.entries.length} entries)`;
+  $("log-verify").replaceChildren(badge(out.verify.ok ? "VERIFIES" : "BROKEN", out.verify.ok ? "ok" : "bad"));
+  $("log").replaceChildren(...[...out.entries].reverse().map((e) => {
+    const flagged = e.event_type === "message_flagged";
+    const text = e.reason || summarize(e);
+    return el("li", { class: flagged ? "flagged" : e.decision === "deny" ? "denied" : "" },
+      el("div", { class: "meta" }, `#${e.seq}`, e.event_type, e.decision ? badge(e.decision.toUpperCase(), e.decision) : null,
+         e.rule_id ? el("b", {}, e.rule_id) : null),
+      el("div", { class: e.reason ? "reason" : "" }, text));
+  }));
+}
+
+function summarize(e) {
+  const i = e.inputs;
+  switch (e.event_type) {
+    case "task_registered": return `Task: ${i.title}`;
+    case "gig_assessed": return `${i.gig_id} ${i.seller}: ${i.status}${i.excluded_because.length ? ` (${i.excluded_because.join(", ")})` : ""}`;
+    case "message_received": return `[UNTRUSTED] ${i.message.text}`;
+    case "message_flagged": return `⚠ ${i.flags.join(", ")} → action taken: ${i.action_taken}`;
+    case "seller_skipped": return `Skipped ${i.gig_id}: ${why(i.code)}`;
+    case "escrow_transition": return `${i.order_id}: ${i.from} → ${i.to}`;
+    case "deliverable_checked": return `${i.filename}: ${i.ok ? "passes" : i.problem}`;
+    default: return JSON.stringify(i).slice(0, 140);
+  }
+}
+
+// --- actions --------------------------------------------------------------------------------------
+
+$("btn-vision").onclick = () => act($("btn-vision"), "err-vision", () => api("POST", "/hire/vision", { text: $("vision").value }));
+$("btn-register").onclick = () => act($("btn-register"), "err-brief", () => {
+  const num = (id) => ($(id).value === "" ? null : Number($(id).value));
+  return api("POST", "/hire/register", {
+    title: $("f-title").value, category: $("f-category").value, budget_hkd: $("f-budget").value.trim(),
+    deadline_days: num("f-deadline"), min_words: $("f-minw").closest("label").hidden ? null : num("f-minw"),
+    max_words: $("f-maxw").closest("label").hidden ? null : num("f-maxw"),
+    min_rating_x100: Number($("f-rating").value), min_completed_orders: num("f-orders") ?? 0,
+    verified_required: $("f-verified").checked, milestone_only: $("f-milestones").checked,
+  });
+});
+$("btn-search").onclick = () => act($("btn-search"), "err-search", () => api("POST", "/hire/search"));
+$("btn-confirm").onclick = () => act($("btn-confirm"), null, () => api("POST", "/hire/confirm"));
+$("btn-deliver").onclick = () => act($("btn-deliver"), null, () => api("POST", "/hire/deliver"));
+$("btn-release").onclick = () => act($("btn-release"), null, () => api("POST", "/hire/release"));
+const startOver = async () => { S = await api("POST", "/hire/reset"); $("f-title").dataset.for = ""; $("vision").value = "";
+  $("tamper-result").replaceChildren(); render(); window.scrollTo(0, 0); };
+$("reset").onclick = startOver;
+$("btn-cancel").onclick = startOver;
+$("f-category").onchange = toggleWords;
+$("btn-tamper").onclick = async () => {
+  const out = await api("POST", "/hire/tamper", { kind: $("tamper-kind").value });
+  const box = (r, title, warn) => el("div", { class: `result ${r.ok ? (warn ? "warn" : "ok") : "bad"}` },
+    el("b", {}, title), el("div", { class: "reason" }, `${r.ok ? "PASS" : "FAIL"}: ${r.message}`));
+  $("tamper-result").replaceChildren(box(out.original, "Original log"), box(out.tampered, `Tampered copy: ${out.what}`),
+    out.without_pinned_head ? box(out.without_pinned_head, "Same copy without the pinned head (why we pin it)", true) : "");
+};
+
+(async () => {
+  $("examples").replaceChildren(...EXAMPLES.map((t) => {
+    const c = el("button", { class: "chip", type: "button" }, t.length > 48 ? t.slice(0, 46) + "…" : t);
+    c.onclick = () => { $("vision").value = t; $("vision").focus(); };
+    return c;
+  }));
+  categories = await api("GET", "/hire/categories");
+  $("f-category").replaceChildren(el("option", { value: "" }, "Choose…"), ...categories.map((c) => el("option", { value: c.id }, c.label)));
+  S = await api("GET", "/hire/state");
+  if (S.brief) $("vision").value = S.brief.vision;
+  render(); await refreshLog();
+})();
+</script>
+</body>
+</html>

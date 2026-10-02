@@ -7,6 +7,26 @@ a signed, hash-chained log that anyone can verify offline.
 **Everything is SIMULATED.** The marketplace, freelancers, fees and escrow are synthetic. No real
 marketplace is called and no money moves.
 
+## The app
+
+```bash
+make run        # then open http://localhost:8000
+```
+
+1. **Describe the job** in your own words ("a logo for my bubble tea shop, HKD 2,000, within 7 days").
+2. **Check and sign** the task the agent drafted. Budget and deadline are only taken from your own words;
+   anything missing you fill in. Nothing happens until you sign.
+3. **The agent searches GigMarket**, a SIMULATED Fiverr-style marketplace (48 made-up gigs), checks every gig
+   against your rules, skips sellers with red flags (off-platform payment, upsells, instructions aimed at AI
+   agents), messages the best ones and proposes one hire with a gate pre-check.
+4. **You confirm**: only then does the gate approve and the money go into SIMULATED escrow.
+5. **Delivery**: the work is checked (file type, word count), you approve, the gate re-checks, money is released.
+
+Every step is in the signed, hash-chained decision log at the bottom of the page.
+Descriptions are read by keyword rules by default; set `GIGGUARD_LLM_MODE=live` with an `ANTHROPIC_API_KEY`
+to have Claude read them (budgets and deadlines are still only accepted if they appear in your text).
+The scripted mission demo is still at http://localhost:8000/mission-demo.
+
 ## Quick start
 
 ```bash
