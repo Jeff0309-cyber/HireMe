@@ -19,6 +19,7 @@ One shared demo session (a lock keeps requests from interleaving). DEMO keys, SI
 from __future__ import annotations
 
 import json
+import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,8 +45,16 @@ def _real_clock() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def effective_mode() -> str:
+    """live mode needs credentials; without them, use the keyword rules instead of failing every call."""
+    mode = mode_from_env()
+    if mode == "live" and not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        return "stub"
+    return mode
+
+
 def new_session(clock=_real_clock) -> HiringSession:
-    return HiringSession(clock, demo_key("user"), demo_key("agent"), LLMClient(mode_from_env(), stub=stub_llm))
+    return HiringSession(clock, demo_key("user"), demo_key("agent"), LLMClient(effective_mode(), stub=stub_llm))
 
 
 class _Holder:

@@ -79,3 +79,12 @@ def test_new_vision_starts_a_new_task_and_reset(client):
     s = client.post("/hire/vision", json={"text": "Translate my menu into Japanese, HKD 800, 5 days"}).json()
     assert s["stage"] == "drafted" and s["mandate"] is None and s["brief"]["category"] == "translation"
     assert client.post("/hire/reset").json()["stage"] == "new"
+
+
+def test_live_mode_without_a_key_uses_rules(monkeypatch):
+    monkeypatch.setenv("GIGGUARD_LLM_MODE", "live")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    assert hire_web.effective_mode() == "stub"
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    assert hire_web.effective_mode() == "live"
