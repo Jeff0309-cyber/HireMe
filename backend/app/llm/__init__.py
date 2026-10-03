@@ -114,8 +114,10 @@ class LLMClient:
         try:
             self.calls += 1
             response = self._sdk.messages.create(**params)
-        except anthropic.APIError as exc:
+        except anthropic.AnthropicError as exc:
             raise LLMError(f"API error: {type(exc).__name__}") from exc
+        except TypeError as exc:      # the SDK raises TypeError when no API key / credentials are configured
+            raise LLMError("no Anthropic API key configured") from exc
         data = response.model_dump(mode="json", exclude_none=True)
         if data.get("stop_reason") in ("refusal", "max_tokens"):
             raise LLMError(f"model stopped with {data.get('stop_reason')}")
@@ -142,8 +144,10 @@ class LLMClient:
         try:
             self.calls += 1
             response = self._sdk.messages.create(**params)
-        except anthropic.APIError as exc:
+        except anthropic.AnthropicError as exc:
             raise LLMError(f"API error: {type(exc).__name__}") from exc
+        except TypeError as exc:      # the SDK raises TypeError when no API key / credentials are configured
+            raise LLMError("no Anthropic API key configured") from exc
 
         if response.stop_reason in ("refusal", "max_tokens"):
             raise LLMError(f"model stopped with {response.stop_reason}")

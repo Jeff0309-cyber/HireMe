@@ -63,3 +63,14 @@ def test_stub_mode():
     assert llm.complete("score_fit", "m", "s", "x") == "score_fit:x"
     with pytest.raises(LLMError):
         LLMClient("stub").complete("t", "m", "s", "p")
+
+
+def test_missing_credentials_become_llm_error(tmp_path):
+    class NoAuth:
+        def create(self, **params):
+            raise TypeError("Could not resolve authentication method")
+    llm = LLMClient("live", cache_dir=tmp_path, sdk_client=SimpleNamespace(messages=NoAuth()))
+    with pytest.raises(LLMError, match="no Anthropic API key"):
+        llm.complete("t", "claude-opus-5-5", "s", "p")
+    with pytest.raises(LLMError, match="no Anthropic API key"):
+        llm.create_message("t", {"model": "claude-opus-5-5", "messages": []})
