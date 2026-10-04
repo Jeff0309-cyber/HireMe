@@ -327,7 +327,7 @@ class HiringSession:
                     from app.agent.claude_agent import ClaudeHiringAgent as Agent
                 outcome = Agent(self).run()
                 if outcome == "error":
-                    self.activity.append({"kind": "status", "text": "Falling back to GigGuard's rule-based search."})
+                    self.activity.append({"kind": "status", "text": "Falling back to HireMe's rule-based search."})
                     self.assessments, self.conversation, self.proposal = [], [], None
                     self._search_rules(limit)
             else:
@@ -360,7 +360,7 @@ class HiringSession:
         return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3 and w not in STOPWORDS}
 
     def assess(self, g: GigListing, limit: int) -> Assessment:
-        """GigGuard's own checks on one gig (eligibility, red flags, budget, deadline). Logged."""
+        """HireMe's own checks on one gig (eligibility, red flags, budget, deadline). Logged."""
         form, policy = self.form, self.policy
         words = set(re.findall(r"[a-z]+", (g.title + " " + " ".join(g.tags)).lower()))
         a = Assessment(gig_id=g.gig_id, title=g.title, seller=g.seller.display_name, seller_id=g.seller.freelancer_id,

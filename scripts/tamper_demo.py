@@ -71,7 +71,7 @@ def main() -> int:
         ("Cut off the tail, head pinned (--expect-head)", OUT / "truncated.jsonl", head, False),
     ]
 
-    print(f"{BOLD}GigGuard tamper demo{RESET}  (SIMULATED run: happy_path, {len(entries)} entries)")
+    print(f"{BOLD}HireMe tamper demo{RESET}  (SIMULATED run: happy_path, {len(entries)} entries)")
     print(f"public key : {result.agent_pubkey}")
     print(f"pinned head: {head}\n")
 

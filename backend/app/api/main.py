@@ -41,7 +41,7 @@ from verify_log import verify_lines
 RUNS_DIR = Path(__file__).resolve().parents[3] / "data" / "runs"
 STEP_DELAY_S = int(os.environ.get("GIGGUARD_STEP_MS", "250")) / 1000  # slows runs so the UI can follow
 
-app = FastAPI(title="GigGuard (SIMULATED)")
+app = FastAPI(title="HireMe (SIMULATED)")
 app.include_router(hire_router)  # the main app at /: vision -> register -> search -> confirm -> pay
 app.include_router(web_router)   # the scripted mission demo at /mission-demo
 

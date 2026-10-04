@@ -29,7 +29,7 @@ from app.marketplace.catalog import (CATEGORIES, PLATFORM, PLATFORM_NAME, Gig, c
 server = MCPServer(
     name="gigmarket",
     title=f"{PLATFORM_NAME} (SIMULATED)",
-    instructions="A simulated freelance marketplace for the GigGuard demo. All sellers, prices and messages are made up.",
+    instructions="A simulated freelance marketplace for the HireMe demo. All sellers, prices and messages are made up.",
     version="1.0.0",
 )
 

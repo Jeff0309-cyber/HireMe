@@ -249,12 +249,12 @@ def main(argv=None) -> int:
     import argparse
     from verify_log import verify_lines
 
-    p = argparse.ArgumentParser(description="Run the SIMULATED GigGuard mission headlessly and print the log.")
+    p = argparse.ArgumentParser(description="Run the SIMULATED HireMe mission headlessly and print the log.")
     p.add_argument("--export", type=Path, help="write mission.jsonl, mission.head and agent.pub here")
     args = p.parse_args(argv)
 
     r = run_mission()
-    print("GigGuard mission  |  SIMULATED marketplace and payments  |  no LLM  |  DEMO keys\n")
+    print("HireMe mission  |  SIMULATED marketplace and payments  |  no LLM  |  DEMO keys\n")
     for e in r.entries:
         tag = (e["decision"] or "").upper()
         print(f"#{e['seq']:<3} {e['event_type']:<24} {tag:<9} {_summary(e)}")

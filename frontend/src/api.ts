@@ -1,4 +1,4 @@
-// Types and helpers for the GigGuard API. Money is always integer HKD cents.
+// Types and helpers for the HireMe API. Money is always integer HKD cents.
 
 export type Entry = {
   seq: number;

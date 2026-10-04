@@ -25,7 +25,7 @@ def main(argv=None) -> int:
     scenarios = load_scenarios()
     ids = args.scenarios or list(scenarios)
     mode = mode_from_env()
-    print(f"GigGuard harness | LLM mode: {mode} | marketplace and payments: SIMULATED\n")
+    print(f"HireMe harness | LLM mode: {mode} | marketplace and payments: SIMULATED\n")
 
     failed = 0
     for sid in ids:

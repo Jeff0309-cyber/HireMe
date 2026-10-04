@@ -1,6 +1,6 @@
 # Data contracts
 
-`backend/app/contracts.py` defines the shapes of the data that moves through GigGuard. They are
+`backend/app/contracts.py` defines the shapes of the data that moves through HireMe. They are
 Pydantic v2 models with **no business logic**. A contract answers "is this well-formed?". Whether
 an action is *allowed* is decided by the policy gate.
 

@@ -54,7 +54,7 @@ export default function App() {
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-          <h1 className="text-lg font-semibold">GigGuard</h1>
+          <h1 className="text-lg font-semibold">HireMe</h1>
           <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
             SIMULATED: no real marketplaces or payments
           </span>

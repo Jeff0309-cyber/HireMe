@@ -1,4 +1,4 @@
-# GigGuard. Everything is SIMULATED: no real marketplaces, no real payments.
+# HireMe. Everything is SIMULATED: no real marketplaces, no real payments.
 PY      := .venv/bin/python
 ENV     := PYTHONPATH=backend:verifier
 NPM     := PATH="$(CURDIR)/.venv/bin:$$PATH" npm

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone verifier for GigGuard decision logs. Needs only the Python stdlib and PyNaCl.
+"""Standalone verifier for HireMe decision logs. Needs only the Python stdlib and PyNaCl.
 
 Usage:
     python verify_log.py LOG.jsonl --pubkey-file agent.pub [--expect-head HASH]
@@ -116,7 +116,7 @@ def verify_lines(lines, pubkey_hex: str, expect_head: Optional[str] = None) -> R
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description="Verify a GigGuard signed, hash-chained log.")
+    p = argparse.ArgumentParser(description="Verify a HireMe signed, hash-chained log.")
     p.add_argument("log", type=Path, help="exported log, one JSON entry per line")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--pubkey", help="agent Ed25519 public key, hex")

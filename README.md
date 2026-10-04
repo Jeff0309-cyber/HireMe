@@ -1,4 +1,4 @@
-# GigGuard
+# HireMe
 
 An AI agent that finds, messages and hires a freelancer for you, but can only spend what your
 signed mandate allows. A deterministic policy gate checks every action, and every step goes into

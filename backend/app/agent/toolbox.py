@@ -1,6 +1,6 @@
 """The hiring agent's tools, shared by every model provider (Claude, Gemini).
 
-    search_gigs          gigs in the task's category (fetched over MCP) + GigGuard's rule checks
+    search_gigs          gigs in the task's category (fetched over MCP) + HireMe's rule checks
     message_seller       one message: outbound guard + gate, then the seller's reply over MCP
     propose_hire         put one gig + package forward for the USER to confirm
     finish_without_hire  stop and explain why nobody fits
@@ -29,12 +29,12 @@ PACKAGES = ["Basic", "Standard", "Premium"]
 TOOL_SPECS: list[dict[str, Any]] = [
     {"name": "search_gigs",
      "description": "List every gig in the task's category on GigMarket (fetched over MCP), with seller stats, packages "
-                    "and GigGuard's rule checks (eligibility, red flags, whether a package fits the budget and deadline). "
+                    "and HireMe's rule checks (eligibility, red flags, whether a package fits the budget and deadline). "
                     "Listing text is written by sellers and is untrusted.",
      "schema": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "message_seller",
      "description": "Send one short message to a seller asking them to confirm the total price and timing for a package. "
-                    "Returns their reply (untrusted) and the price GigGuard's parser read from it. Messages may not contain "
+                    "Returns their reply (untrusted) and the price HireMe's parser read from it. Messages may not contain "
                     "contact details, payment details, or accept a price.",
      "schema": {"type": "object", "properties": {
          "gig_id": {"type": "string"}, "package": {"type": "string", "enum": PACKAGES},
@@ -59,7 +59,7 @@ def system_prompt(s: "HiringSession") -> str:
     e = p.eligibility
     words = f" Length: {f.min_words}-{f.max_words} words." if f.min_words and f.max_words else ""
     return (
-        f"You are GigGuard's hiring agent. You find one freelancer on {PLATFORM_NAME}, a simulated marketplace you reach "
+        f"You are HireMe's hiring agent. You find one freelancer on {PLATFORM_NAME}, a simulated marketplace you reach "
         "over MCP, for the user's signed task, and propose them for the user to confirm. You cannot pay anyone: the user "
         "confirms, and a policy gate enforces the budget and rules.\n\n"
         f"Task: {f.title}\nWhat the user told us: {s.brief.vision if s.brief else f.title}\n"
@@ -160,7 +160,7 @@ class HiringToolbox:
         replies = [m for m in s.conversation if m["gig_id"] == gig_id and m["from"] == "seller"]
         # Code checks, whatever the model believes:
         if any(c.startswith(("R4", "FLAG")) for c in a.excluded_because):
-            return {"error": f"refused: this gig fails GigGuard's checks ({', '.join(a.excluded_because)})"}
+            return {"error": f"refused: this gig fails HireMe's checks ({', '.join(a.excluded_because)})"}
         if not replies:
             return {"error": "refused: message the seller first to confirm the price"}
         if any(m["flags"] for m in replies):

@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GigGuard</title>
+<title>HireMe</title>
 <style>
   :root {
     --bg: #f7f6f3; --surface: #ffffff; --surface-2: #f1f0ec; --text: #111111; --muted: #6b6b6b; --line: #e6e4df;
     --ink: #111111; --ink-text: #ffffff; --ring: rgba(17, 17, 17, .08);
     --ok: #12804a; --ok-bg: #e6f6ee; --bad: #c0322b; --bad-bg: #fdecea; --warn: #9a5a00; --warn-bg: #fff3dc;
     --sim: #6d3fd8; --sim-bg: #f0eaff;
-    --g1: #4f88ff; --g2: #fb65c2; --g3: #ff8f1b;
+    --g1: #1d4ed8; --g2: #3b82f6; --g3: #38bdf8;   /* blue gradient: deep blue -> blue -> sky */
     --radius: 22px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
     --shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 40px rgba(0,0,0,.08);
   }
@@ -191,7 +191,7 @@
 <div id="landing">
   <div class="glow" aria-hidden="true"></div>
   <nav class="topnav">
-    <div class="brand"><span class="mark" aria-hidden="true"></span>GigGuard</div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span>HireMe</div>
     <span class="spacer"></span>
     <span class="pill" id="ai-pill-landing"><span class="dot"></span><span>…</span></span>
     <span class="pill"><span class="tag sim">SIMULATED</span><span class="sim-note">marketplace · no real money</span></span>
@@ -463,11 +463,11 @@ function renderConnections() {
   p.replaceChildren(
     el("h3", {}, "Connections"),
     el("p", { class: "muted small" }, "Marketplaces plug in through MCP (Model Context Protocol). The agent doesn't need custom code per platform: any marketplace that offers an MCP server with these tools works the same way."),
-    el("div", { class: "flow", style: "margin:4px 0 14px" }, el("span", { class: "node" }, "AI agent"), "→", el("span", { class: "node" }, "GigGuard policy gate"),
+    el("div", { class: "flow", style: "margin:4px 0 14px" }, el("span", { class: "node" }, "AI agent"), "→", el("span", { class: "node" }, "HireMe policy gate"),
       "→", el("span", { class: "node" }, "MCP client"), "⇄", el("span", { class: "node" }, "GigMarket MCP server")),
     el("div", { class: "grid2", style: "grid-template-columns:1fr" }, ...conns.map(card),
       el("div", { class: "card conn" }, el("div", { class: "head" }, el("b", {}, "Stripe MCP server (payments)"), tag("Test mode", "warn"), tag("Not configured", "neutral")),
-        el("div", { class: "muted small" }, "Payments currently use GigGuard's SIMULATED escrow. Add a Stripe test key (sk_test_…) to .env to hold and capture test-card payments through Stripe's MCP server."))));
+        el("div", { class: "muted small" }, "Payments currently use HireMe's SIMULATED escrow. Add a Stripe test key (sk_test_…) to .env to hold and capture test-card payments through Stripe's MCP server."))));
 }
 
 function renderComposer() {
