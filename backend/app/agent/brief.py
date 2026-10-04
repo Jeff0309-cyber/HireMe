@@ -166,22 +166,30 @@ class _ClaudeBrief(BaseModel):
 
 
 def draft_with_claude(vision: str, llm: LLMClient) -> Brief:
-    raw = llm.complete("draft_brief", agent_model(), SYSTEM, f"<client_description>\n{vision}\n</client_description>",
-                       max_tokens=4000)
+    """Ask the configured model (Claude or Gemini) for a brief, then validate it against the user's words."""
+    raw = llm.complete("draft_brief", llm.model_for_agent(), SYSTEM,
+                       f"<client_description>\n{vision}\n</client_description>", max_tokens=4000)
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
         raise ValueError("no JSON object in the reply")
-    c = _ClaudeBrief.model_validate(json.loads(match.group(0)))
+    return brief_from_model(json.loads(match.group(0)), vision, source=llm.provider if llm.provider != "anthropic" else "claude")
+
+
+def brief_from_model(fields: dict, user_text: str, source: str) -> Brief:
+    """Turn a model's suggested brief into a Brief, trusting the model only for wording and category.
+    Budget and deadline are kept only if they match what the user actually wrote (user_text)."""
+    vision = user_text
+    c = _ClaudeBrief.model_validate(fields)
     rules = draft_with_rules(vision)       # the trusted source for money and dates
-    brief = Brief(title=c.title.strip()[:80] or rules.title, vision=vision.strip(), source="claude",
+    brief = Brief(title=c.title.strip()[:80] or rules.title, vision=vision.strip(), source=source,
                   keywords=[k[:40] for k in c.keywords], must_haves=[m[:100] for m in c.must_haves])
 
     if c.category in CATEGORIES:
         brief.category = c.category
-        brief.notes.append(f"Category: {CATEGORIES[c.category].label} (suggested by Claude).")
+        brief.notes.append(f"Category: {CATEGORIES[c.category].label} (suggested by the AI).")
     else:
         brief.category = rules.category
-        brief.warnings.append("Claude's category wasn't one we support; using keyword matching instead.")
+        brief.warnings.append("The AI's category wasn't one we support; using keyword matching instead.")
 
     # Money: keep Claude's number only if the user wrote exactly that HKD amount.
     stated = parse_quote(vision).found
@@ -193,11 +201,11 @@ def draft_with_claude(vision: str, llm: LLMClient) -> Brief:
             claimed = None
     if claimed is not None and claimed in stated:
         brief.budget_minor = claimed
-        brief.notes.append("Budget: the HKD amount in your text (confirmed by both Claude and the parser).")
+        brief.notes.append("Budget: the HKD amount in your text (confirmed by both the AI and the parser).")
     else:
         brief.budget_minor = rules.budget_minor
         if claimed is not None and claimed not in stated:
-            brief.warnings.append("Claude suggested a budget that isn't written in your text, so it was ignored.")
+            brief.warnings.append("The AI suggested a budget that isn't written in your text, so it was ignored.")
         brief.notes += [n for n in rules.notes if n.startswith("Budget")]
         brief.warnings += [w for w in rules.warnings if "budget" in w.lower()]
 
@@ -208,7 +216,7 @@ def draft_with_claude(vision: str, llm: LLMClient) -> Brief:
     else:
         brief.deadline_days = rules.deadline_days
         if c.deadline_days is not None and c.deadline_days != rules.deadline_days:
-            brief.warnings.append("Claude's deadline didn't match your text, so the parsed one is used.")
+            brief.warnings.append("The AI's deadline didn't match your text, so the parsed one is used.")
         brief.notes += [n for n in rules.notes if n.startswith("Deadline")]
         brief.warnings += [w for w in rules.warnings if "deadline" in w.lower()]
 
@@ -232,5 +240,5 @@ def draft_brief(vision: str, llm: Optional[LLMClient] = None) -> Brief:
         return draft_with_claude(vision, llm)
     except (LLMError, ValueError, ValidationError, json.JSONDecodeError):
         brief = draft_with_rules(vision)
-        brief.warnings.insert(0, "Claude couldn't read this description, so a simpler keyword reader was used.")
+        brief.warnings.insert(0, "The AI couldn't read this description, so a simpler keyword reader was used.")
         return brief

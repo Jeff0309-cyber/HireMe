@@ -17,8 +17,18 @@ def client(monkeypatch):
     return TestClient(app)
 
 
+def chat_until_drafted(client, text=LOGO):
+    """Paste the idea, answer the AI's questions until it drafts the task."""
+    s = client.post("/hire/vision", json={"text": text}).json()
+    for _ in range(4):
+        if s["stage"] == "drafted":
+            break
+        s = client.post("/hire/answer", json={"text": "Chinese and English, vector source files"}).json()
+    return s
+
+
 def register_logo(client):
-    b = client.post("/hire/vision", json={"text": LOGO}).json()["brief"]
+    b = chat_until_drafted(client)["brief"]
     return client.post("/hire/register", json={"title": b["title"], "category": b["category"], "budget_hkd": "2,000",
                                                 "deadline_days": b["deadline_days"]})
 
@@ -39,7 +49,13 @@ def test_categories(client):
 
 def test_full_flow_over_http(client):
     s = client.post("/hire/vision", json={"text": LOGO}).json()
+    assert s["stage"] == "clarifying"
+    ai = s["chat"][-1]
+    assert ai["role"] == "ai" and ai["questions"] and ai["questions"][0]["options"]
+    s = client.post("/hire/answer", json={"text": "Chinese and English, vector source files"}).json()
     assert s["stage"] == "drafted" and s["brief"]["budget_minor"] == 200_000
+    assert [t["role"] for t in s["chat"]] == ["user", "ai", "user", "ai"]
+    client.post("/hire/reset")
     s = register_logo(client).json()
     assert s["stage"] == "registered" and len(s["mandate"]["policy_hash"]) == 64
     s = client.post("/hire/search").json()
@@ -76,7 +92,7 @@ def test_tamper(client, kind):
 
 def test_new_vision_starts_a_new_task_and_reset(client):
     register_logo(client)
-    s = client.post("/hire/vision", json={"text": "Translate my menu into Japanese, HKD 800, 5 days"}).json()
+    s = chat_until_drafted(client, "Translate my menu into Japanese, HKD 800, 5 days")
     assert s["stage"] == "drafted" and s["mandate"] is None and s["brief"]["category"] == "translation"
     assert client.post("/hire/reset").json()["stage"] == "new"
 
@@ -88,3 +104,24 @@ def test_live_mode_without_a_key_uses_rules(monkeypatch):
     assert hire_web.effective_mode() == "stub"
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     assert hire_web.effective_mode() == "live"
+
+
+def test_questions_ask_only_for_what_is_missing(client):
+    s = client.post("/hire/vision", json={"text": "Edit 5 Instagram reels from my shop footage"}).json()
+    asked = " ".join(q["question"] for q in s["chat"][-1]["questions"])
+    assert "budget" in asked and "When do you need it" in asked
+    s = client.post("/hire/answer", json={"text": "HKD 3,000, within 10 days"}).json()
+    assert s["stage"] == "drafted"
+    assert (s["brief"]["budget_minor"], s["brief"]["deadline_days"]) == (300_000, 10)   # from the user's answer
+
+
+def test_skip_questions(client):
+    client.post("/hire/vision", json={"text": LOGO})
+    s = client.post("/hire/skip").json()
+    assert s["stage"] == "drafted" and s["brief"]["category"] == "logo_design"
+    assert client.post("/hire/skip").status_code == 409
+
+
+def test_connections_are_reported(client):
+    s = client.get("/hire/state").json()
+    assert s["connections"][0]["name"].startswith("gigmarket")

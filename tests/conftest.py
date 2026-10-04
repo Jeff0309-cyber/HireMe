@@ -2,6 +2,8 @@ import os
 
 # Tests never call a real model, even if a developer's .env says GIGGUARD_LLM_MODE=live.
 os.environ["GIGGUARD_LLM_MODE"] = "stub"
+os.environ["GIGGUARD_LLM_PROVIDER"] = "anthropic"
+os.environ["GIGGUARD_MARKET"] = "local"        # MCP is tested separately (tests/test_mcp.py)
 
 from datetime import datetime, timezone
 

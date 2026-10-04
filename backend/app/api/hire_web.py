@@ -2,7 +2,9 @@
 
   GET  /                 the page (static/hire.html, vanilla JS)
   GET  /hire/categories  categories the simulated marketplace offers
-  POST /hire/vision      {text} -> draft brief (nothing registered yet)
+  POST /hire/vision      {text} -> the AI starts a clarifying chat (asks questions about the idea)
+  POST /hire/answer      {text} -> next question, or the drafted brief when it understands enough
+  POST /hire/skip        draft the brief now from what the user has said
   POST /hire/register    reviewed brief -> signed mandate; the decision log starts
   POST /hire/search      agent searches GigMarket (SIMULATED), messages sellers, proposes a hire.
                          With an API key this is Claude (runs in the background; poll /hire/state).
@@ -32,7 +34,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.agent.hiring import FlowError, HiringSession, RegisterForm
 from app.agent.stub import stub_llm
 from app.ledger.keys import demo_key
-from app.llm import LLMClient, load_env_file, mode_from_env
+from app.llm import LLMClient, has_credentials, load_env_file, mode_from_env, provider_from_env
+from app.marketplace.access import LocalMarketplace, MCPMarketplace
 from app.marketplace.catalog import CATEGORIES
 from verify_log import verify_lines
 
@@ -46,15 +49,29 @@ def _real_clock() -> datetime:
 
 
 def effective_mode() -> str:
-    """live mode needs credentials; without them, use the keyword rules instead of failing every call."""
+    """live mode needs credentials for the chosen provider; without them, use the keyword rules
+    instead of failing every call (and the UI says the AI is off)."""
     mode = mode_from_env()
-    if mode == "live" and not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+    if mode == "live" and not has_credentials(provider_from_env()):
         return "stub"
     return mode
 
 
+def new_market():
+    """The marketplace, reached over MCP (GigMarket server as a stdio subprocess).
+    GIGGUARD_MARKET=local skips MCP (used by tests)."""
+    return LocalMarketplace() if os.environ.get("GIGGUARD_MARKET") == "local" else MCPMarketplace()
+
+
 def new_session(clock=_real_clock) -> HiringSession:
-    return HiringSession(clock, demo_key("user"), demo_key("agent"), LLMClient(effective_mode(), stub=stub_llm))
+    llm = LLMClient(effective_mode(), stub=stub_llm, provider=provider_from_env())
+    return HiringSession(clock, demo_key("user"), demo_key("agent"), llm, market=new_market())
+
+
+def _replace_session(clock) -> HiringSession:
+    HOLDER.session.market.close()
+    HOLDER.session = new_session(clock)
+    return HOLDER.session
 
 
 class _Holder:
@@ -99,9 +116,9 @@ def categories():
 @router.post("/hire/vision")
 def vision(body: VisionIn):
     def go(s: HiringSession):
-        if s.stage not in ("new", "drafted"):
-            HOLDER.session = s = new_session(s.clock)      # a new vision starts a new task
-        s.draft(body.text)
+        if s.stage != "new":
+            s = _replace_session(s.clock)                 # a new idea starts a new task
+        s.start_chat(body.text)
     with HOLDER.lock:
         try:
             go(HOLDER.session)
@@ -157,8 +174,24 @@ def release():
 @router.post("/hire/reset")
 def reset():
     with HOLDER.lock:
-        HOLDER.session = new_session(HOLDER.session.clock)
-        return HOLDER.session.snapshot()
+        return _replace_session(HOLDER.session.clock).snapshot()
+
+
+class AnswerIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/hire/answer")
+def answer(body: AnswerIn):
+    """The user answers the AI's clarifying questions."""
+    return _step(lambda s: s.answer(body.text))
+
+
+@router.post("/hire/skip")
+def skip():
+    """Skip the remaining questions and draft the task from what we have."""
+    return _step(lambda s: s.skip_questions())
 
 
 @router.get("/hire/state")

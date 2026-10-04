@@ -23,14 +23,15 @@ from nacl.signing import SigningKey
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.brief import Brief, draft_brief
+from app.agent.clarify import Clarifier
 from app.agent.messaging import flag_inbound, guard_outbound
 from app.contracts import Decision, HireProposal, Mandate, Message, Milestone, Money, Policy, SignedMandate
 from app.escrow import compute_fee
 from app.escrow.escrow import DeliverableSpec, Escrow
 from app.ledger import ChainLog
 from app.llm import LLMClient, agent_model
-from app.marketplace.catalog import (CATEGORIES, PLATFORM, PLATFORM_NAME, Gig, delivery_message, gig, reply_to_inquiry,
-                                     search, simulated_deliverable)
+from app.marketplace.access import CallRecord, GigListing, LocalMarketplace, MarketplaceError
+from app.marketplace.catalog import CATEGORIES, PLATFORM, PLATFORM_NAME
 from app.observed import load_observed
 from app.policy import (HireRequest, PolicyState, eligibility_failures, evaluate, evaluate_message, mandate_digest,
                         parse_quote, render_reason, sign_mandate, verify_mandate)
@@ -105,11 +106,16 @@ class ProposalView:
 
 class HiringSession:
     def __init__(self, clock: Callable[[], datetime], user_key: SigningKey, agent_key: SigningKey,
-                 llm: Optional[LLMClient] = None):
+                 llm: Optional[LLMClient] = None, market=None):
         self.clock, self.user_key, self.agent_key, self.llm = clock, user_key, agent_key, llm
+        # The marketplace, reached over MCP in the app (LocalMarketplace only in unit tests).
+        self.market = market if market is not None else LocalMarketplace()
+        self.market.on_call = self._on_market_call
+        self.listings: dict[str, GigListing] = {}
         self.user_pubkey = user_key.verify_key.encode().hex()
         self.stage = "new"
         self.brief: Optional[Brief] = None
+        self.clarifier: Optional[Clarifier] = None
         self.signed: Optional[SignedMandate] = None
         self.log: Optional[ChainLog] = None
         self.state = PolicyState()
@@ -153,7 +159,31 @@ class HiringSession:
         return Message(message_id=f"msg-{self._n}", platform=PLATFORM, freelancer_id=fid, direction=direction,
                        text=text, untrusted=(direction == "inbound"), sent_at=self.clock())
 
-    def _send(self, g: Gig, text: str) -> bool:
+    def _on_market_call(self, rec: CallRecord) -> None:
+        """Every MCP call is shown in the agent feed and written to the signed log."""
+        self.activity.append({"kind": "mcp", "server": rec.server, "tool": rec.tool, "ms": rec.ms, "ok": rec.ok,
+                              "summary": rec.summary})
+        if self.log is not None:
+            self.log.append("mcp_call", {"server": rec.server, "tool": rec.tool, "args": rec.args, "ms": rec.ms,
+                                         "ok": rec.ok, "summary": rec.summary})
+
+    def listing(self, gig_id: str) -> GigListing:
+        if gig_id not in self.listings:
+            self.listings[gig_id] = self.market.get(gig_id)
+        return self.listings[gig_id]
+
+    def ask_seller(self, g: GigListing, package: str, text: str) -> Optional[tuple[Message, tuple[str, ...]]]:
+        """Send one message (guard + gate) and read the reply over the marketplace connection."""
+        if not self._send(g, text):
+            return None
+        try:
+            reply = self.market.message(g.gig_id, package, text)
+        except MarketplaceError as exc:
+            self.log.append("message_failed", {"gig_id": g.gig_id, "error": str(exc)[:160]})
+            return None
+        return self._receive(g, reply)
+
+    def _send(self, g: GigListing, text: str) -> bool:
         guard = guard_outbound(text)
         if not guard.ok:
             self.log.append("message_blocked", {"freelancer_id": g.seller.freelancer_id, "text": text,
@@ -168,7 +198,7 @@ class HiringSession:
         self.conversation.append({"from": "agent", "gig_id": g.gig_id, "text": text, "flags": []})
         return True
 
-    def _receive(self, g: Gig, text: str) -> tuple[Message, tuple[str, ...]]:
+    def _receive(self, g: GigListing, text: str) -> tuple[Message, tuple[str, ...]]:
         msg = self._message(g.seller.freelancer_id, "inbound", text)
         self.log.append("message_received", {"message": msg.model_dump(mode="json"), "gig_id": g.gig_id,
                                              "label": "SIMULATED"})
@@ -182,6 +212,37 @@ class HiringSession:
         return msg, flags
 
     # --- steps ---------------------------------------------------------------------------------------
+
+    # --- 1. understand the idea: a short clarifying chat, then a draft brief ------------------------
+
+    def start_chat(self, vision: str) -> None:
+        """The user pasted their idea. The AI asks questions until it understands, then drafts."""
+        self._need("new", "clarifying", "drafted")
+        if not vision.strip():
+            raise FlowError("please describe what you want done")
+        self.clarifier = Clarifier(vision, self.llm)
+        self.clarifier.start()
+        self._after_turn()
+
+    def answer(self, text: str) -> None:
+        self._need("clarifying")
+        try:
+            self.clarifier.answer(text)
+        except ValueError as exc:
+            raise FlowError(str(exc)) from exc
+        self._after_turn()
+
+    def skip_questions(self) -> None:
+        self._need("clarifying")
+        self.clarifier.finish_now()
+        self._after_turn()
+
+    def _after_turn(self) -> None:
+        if self.clarifier.ready:
+            self.brief = self.clarifier.brief
+            self.stage = "drafted"
+        else:
+            self.stage = "clarifying"
 
     def draft(self, vision: str) -> Brief:
         self._need("new", "drafted")
@@ -254,19 +315,26 @@ class HiringSession:
         limit = self._spend_limit()
         self.log.append("search_started", {"platform": PLATFORM, "platform_name": PLATFORM_NAME, "category": form.category,
                                            "max_total_minor": limit, "deadline_days": form.deadline_days,
-                                           "agent": "claude" if self.uses_agent else "rules", "label": "SIMULATED"})
+                                           "agent": self.llm.provider if self.uses_agent else "rules",
+                                           "marketplace_connection": self.market.transport, "label": "SIMULATED"})
         self.assessments, self.conversation, self.proposal, self.activity = [], [], None, []
         self.no_match_reason = None
         try:
             if self.uses_agent:
-                from app.agent.claude_agent import ClaudeHiringAgent
-                outcome = ClaudeHiringAgent(self).run()
+                if self.llm.provider == "gemini":
+                    from app.agent.gemini_agent import GeminiHiringAgent as Agent
+                else:
+                    from app.agent.claude_agent import ClaudeHiringAgent as Agent
+                outcome = Agent(self).run()
                 if outcome == "error":
                     self.activity.append({"kind": "status", "text": "Falling back to GigGuard's rule-based search."})
                     self.assessments, self.conversation, self.proposal = [], [], None
                     self._search_rules(limit)
             else:
                 self._search_rules(limit)
+        except MarketplaceError as exc:
+            self.no_match_reason = f"Couldn't reach the marketplace ({exc}). Nothing was paid."
+            self.log.append("marketplace_error", {"error": str(exc)[:200]})
         except Exception:
             self.stage = "no_match"
             self.no_match_reason = "Something went wrong during the search. Nothing was paid."
@@ -291,7 +359,7 @@ class HiringSession:
         text = self.form.title + " " + (self.brief.vision if self.brief else "")
         return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 3 and w not in STOPWORDS}
 
-    def assess(self, g: Gig, limit: int) -> Assessment:
+    def assess(self, g: GigListing, limit: int) -> Assessment:
         """GigGuard's own checks on one gig (eligibility, red flags, budget, deadline). Logged."""
         form, policy = self.form, self.policy
         words = set(re.findall(r"[a-z]+", (g.title + " " + " ".join(g.tags)).lower()))
@@ -313,28 +381,31 @@ class HiringSession:
             a.excluded_because.append("OVER_BUDGET")
         a.status = "excluded" if a.excluded_because else "candidate"
         self.assessments.append(a)
+        self.listings[g.gig_id] = g
         self.log.append("gig_assessed", {k: v for k, v in asdict(a).items() if k not in ("title",)})
         return a
 
     def _search_rules(self, limit: int) -> None:
         """Deterministic search: rank by keyword fit, then rating, then price; message the top 3."""
         form = self.form
-        for g in search(form.category):
+        for g in self.market.search(form.category):
             self.assess(g, limit)
         ranked = sorted((a for a in self.assessments if a.status == "candidate"),
                         key=lambda a: (-a.fit, -a.rating_x100, a.total_minor, a.gig_id))
         for a in ranked[:MAX_CONTACTS]:
-            g = gig(a.gig_id)
+            g = self.listing(a.gig_id)
             first = g.seller.display_name.split()[0]
             intro = (f"Hi {first}, I found your gig \"{g.title}\". Could you do the {a.package} package for my client "
                      f"within {form.deadline_days} days? The job: {form.title.rstrip('.!? ')}. Please reply with the total price in HKD.")
-            if not self._send(g, intro):
+            got = self.ask_seller(g, a.package, intro)
+            if got is None:
                 fallback = (f"Hi {first}, could you do the {a.package} package within {form.deadline_days} days? "
                             "Please reply with the total price in HKD.")
-                if not self._send(g, fallback):
+                got = self.ask_seller(g, a.package, fallback)
+                if got is None:
                     a.status, a.rejected_because = "contacted_rejected", "COULD_NOT_MESSAGE"
                     continue
-            reply, flags = self._receive(g, reply_to_inquiry(g, a.package))
+            reply, flags = got
             q = parse_quote(reply.text)
             if flags:
                 a.rejected_because = "FLAGGED:" + ",".join(flags)
@@ -351,7 +422,7 @@ class HiringSession:
             self._propose(g, a, reply)
             break
 
-    def _propose(self, g: Gig, a: Assessment, quote: Message) -> None:
+    def _propose(self, g: GigListing, a: Assessment, quote: Message) -> None:
         fee = compute_fee(a.price_minor, self.observed)
         milestones: list[Milestone] = []
         if self.policy.milestone_only:
@@ -387,10 +458,13 @@ class HiringSession:
     def deliver(self) -> dict:
         """SIMULATED: the seller uploads the work."""
         self._need("funded")
-        g = gig(self.proposal.gig_id)
+        g = self.listing(self.proposal.gig_id)
         words = ((self.form.min_words or 150) + (self.form.max_words or 250)) // 2
-        filename, content = simulated_deliverable(g, words)
-        self._receive(g, delivery_message(g, filename))
+        try:
+            filename, content, note = self.market.delivery(g.gig_id, words)
+        except MarketplaceError as exc:
+            raise FlowError(f"couldn't fetch the delivery from the marketplace: {exc}") from exc
+        self._receive(g, note)
         check = self.escrow.deliver("order-1", filename, content, idempotency_key="deliver-1")
         self.stage = "delivered" if check.ok else "held"
         return {"ok": check.ok, "filename": filename, "file_type": check.file_type, "words": check.words,
@@ -412,6 +486,7 @@ class HiringSession:
         return {
             "stage": self.stage,
             "brief": self.brief.model_dump() if self.brief else None,
+            "chat": [t.model_dump() for t in self.clarifier.turns] if self.clarifier else [],
             "mandate": None if not self.signed else {
                 "signed_mandate": self.signed.model_dump(mode="json"), "policy_hash": mandate_digest(self.signed.mandate),
                 "trusted_user_pubkey": self.user_pubkey},
@@ -428,7 +503,10 @@ class HiringSession:
             "form": self.form.model_dump() if self.signed else None,
             "activity": list(self.activity),
             "no_match_reason": self.no_match_reason,
-            "ai": {"mode": self.llm.mode if self.llm else "stub", "agent": "claude" if self.uses_agent else "rules",
-                   "model": agent_model()},
+            "ai": {"mode": self.llm.mode if self.llm else "stub",
+                   "provider": self.llm.provider if self.llm else "none",
+                   "agent": (self.llm.provider if self.uses_agent else "rules"),
+                   "model": self.llm.model_for_agent() if self.llm else agent_model()},
+            "connections": [self.market.status()],
         }
 

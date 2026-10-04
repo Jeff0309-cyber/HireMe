@@ -145,6 +145,26 @@
   ol.log li.flagged { border-left: 4px solid var(--warn); }
   ol.log li.denied { border-left: 4px solid var(--bad); }
   ol.log .m { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .qs { display: grid; gap: 10px; margin-top: 4px; }
+  .q-text { font-weight: 600; font-size: 14px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 5px 11px; font-size: 13px; }
+  .chip:hover { border-color: var(--text); }
+  details.think { font-size: 12.5px; color: var(--muted); }
+  details.think summary { cursor: pointer; list-style: none; display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+  details.think summary::before { content: "✦"; background: linear-gradient(90deg, var(--g1), var(--g2), var(--g3)); -webkit-background-clip: text; color: transparent; }
+  details.think div { white-space: pre-wrap; margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--line); }
+  .step-line.mcp { font-family: var(--mono); font-size: 11.5px; }
+  .step-line.mcp .ic { color: var(--sim); }
+  textarea.answer { width: 100%; flex-basis: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font: inherit;
+                    font-size: 14.5px; background: var(--bg); color: var(--text); resize: none; min-height: 46px; }
+  .conn { display: grid; gap: 10px; }
+  .conn .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .conn .tools { display: flex; gap: 6px; flex-wrap: wrap; }
+  table.calls { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.calls td { padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  .flow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .flow .node { border: 1px solid var(--line); border-radius: 10px; padding: 5px 9px; background: var(--surface); color: var(--text); font-weight: 600; }
   .empty { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
 
   @media (max-width: 640px) {
@@ -219,11 +239,13 @@
         <button class="tab" data-tab="task">Task</button>
         <button class="tab" data-tab="freelancers">Freelancers <span class="count" id="count-gigs"></span></button>
         <button class="tab" data-tab="payment">Payment</button>
+        <button class="tab" data-tab="connections">Connections <span class="count" id="count-mcp"></span></button>
         <button class="tab" data-tab="log">Log <span class="count" id="count-log"></span></button>
       </div>
       <div class="pane" id="pane-task"></div>
       <div class="pane" id="pane-freelancers" hidden></div>
       <div class="pane" id="pane-payment" hidden></div>
+      <div class="pane" id="pane-connections" hidden></div>
       <div class="pane" id="pane-log" hidden></div>
     </div>
   </div>
@@ -262,7 +284,7 @@ const REASONS = {
   "FLAGGED:EXTRA_CHARGE": "added extra charges",
 };
 const why = (c) => REASONS[c] || c.replace(/^FLAGGED:/, "flagged: ");
-const STAGE_LABEL = { drafted: "Review", registered: "Signed", searching: "Searching…", no_match: "No match", proposed: "Awaiting you",
+const STAGE_LABEL = { clarifying: "Understanding", drafted: "Review", registered: "Signed", searching: "Searching…", no_match: "No match", proposed: "Awaiting you",
   funded: "In escrow", escalated: "Needs human", denied: "Refused", delivered: "Delivered", held: "On hold", released: "Paid" };
 
 async function api(method, path, body) {
@@ -275,40 +297,44 @@ async function api(method, path, body) {
   return data;
 }
 
+let pending = false, pendingVision = null, answerDraft = "";
 let S = null, categories = [], logOut = null, activeTab = "task", userPickedTab = false, poll = null, tamperOut = null;
 
 // ---------------- rendering ----------------
 function render() {
-  const inWorkspace = S && S.stage !== "new";
+  const inWorkspace = (S && S.stage !== "new") || !!pendingVision;
   $("landing").hidden = inWorkspace; $("workspace").hidden = !inWorkspace;
   renderAI();
   if (!inWorkspace) return;
-  $("w-title").textContent = (S.mandate && S.mandate.signed_mandate.mandate.task.split("\n")[0]) || (S.brief && S.brief.title) || "New task";
+  $("w-title").textContent = (S.stage === "new" && pendingVision ? "New task" : null) || (S.mandate && S.mandate.signed_mandate.mandate.task.split("\n")[0]) || (S.brief && S.brief.title) || "New task";
   $("w-stage").textContent = STAGE_LABEL[S.stage] || S.stage;
   $("w-stage").className = `tag ${["released", "funded", "delivered"].includes(S.stage) ? "ok" : ["denied", "held"].includes(S.stage) ? "bad" : "neutral"}`;
   if (!userPickedTab) activeTab = autoTab();
-  renderTabs(); renderThread(); renderComposer(); renderTask(); renderFreelancers(); renderPayment(); renderLog();
+  renderTabs(); renderThread(); renderComposer(); renderTask(); renderFreelancers(); renderPayment(); renderConnections(); renderLog();
   if (S.stage === "searching") startPolling(); else stopPolling();
 }
 
 function renderAI() {
-  const ai = S && S.ai, live = ai && ai.agent === "claude";
+  const ai = S && S.ai, live = ai && ai.agent !== "rules";
+  const who = ai && ai.provider === "gemini" ? "Gemini" : "Claude";
   for (const id of ["ai-pill", "ai-pill-landing"]) {
     const p = $(id); p.className = `pill ${live ? "live" : ""}`;
-    p.lastChild.textContent = !ai ? "…" : live ? `AI agent · ${ai.model}` : "AI off · keyword rules";
-    p.title = live ? "A real Claude agent searches and messages sellers." : "Add ANTHROPIC_API_KEY and GIGGUARD_LLM_MODE=live to .env to use the Claude agent.";
+    p.lastChild.textContent = !ai ? "…" : live ? `AI · ${who} ${ai.model}` : "AI off · keyword rules";
+    p.title = live ? `A real ${who} agent asks questions, searches and messages sellers.` : "Add an API key and GIGGUARD_LLM_MODE=live to .env to turn the AI on.";
   }
 }
 
 function autoTab() {
-  if (["drafted", "registered"].includes(S.stage)) return "task";
+  if (["new", "clarifying", "drafted", "registered"].includes(S.stage)) return "task";
   if (["searching", "no_match"].includes(S.stage)) return "freelancers";
   return "payment";
 }
 
 function renderTabs() {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === activeTab));
-  for (const t of ["task", "freelancers", "payment", "log"]) $(`pane-${t}`).hidden = t !== activeTab;
+  for (const t of ["task", "freelancers", "payment", "connections", "log"]) $(`pane-${t}`).hidden = t !== activeTab;
+  const mcpCalls = (S.connections || []).reduce((n, c) => n + (c.calls || []).length, 0);
+  $("count-mcp").textContent = mcpCalls ? `· ${mcpCalls}` : "";
   $("count-gigs").textContent = S.assessments.length ? `· ${S.assessments.length}` : "";
   $("count-log").textContent = logOut ? `· ${logOut.entries.length}` : "";
 }
@@ -319,9 +345,23 @@ function stepLine(icon, text, cls) { return el("div", { class: `step-line ${cls 
 function renderThread() {
   const t = $("thread"), items = [];
   const b = S.brief;
-  if (b) {
-    items.push(el("div", { class: "msg user" }, b.vision));
-    items.push(agentMsg(el("div", {}, `I read your idea${b.source === "claude" ? " with Claude" : ""}. Here's the task I drafted — check it in the `, el("b", {}, "Task"), " tab, change anything, then sign it."),
+  const chat = S.chat && S.chat.length ? S.chat : (pendingVision ? [{ role: "user", text: pendingVision, questions: [] }] : []);
+  const lastAi = [...chat].reverse().find((t) => t.role === "ai");
+  for (const turn of chat) {
+    if (turn.role === "user") { items.push(el("div", { class: "msg user" }, turn.text)); continue; }
+    const live = S.stage === "clarifying" && turn === lastAi;
+    items.push(agentMsg(
+      turn.thinking ? thinkingBlock(turn.thinking) : null,
+      el("div", { style: "white-space:pre-wrap" }, turn.text),
+      turn.questions.length ? el("div", { class: "qs" }, ...turn.questions.map((q) => el("div", {},
+        el("div", { class: "q-text" }, q.question),
+        live && q.options.length ? el("div", { class: "chips" }, ...q.options.map((o) =>
+          el("button", { class: "chip", type: "button", onclick: () => addAnswer(q.question, o, turn.questions.length) }, o))) : null))) : null));
+  }
+  if (pending) items.push(agentMsg(el("div", { class: "muted small" }, el("span", { class: "spinner" }), "  Thinking…")));
+  if (b && S.stage !== "clarifying" && !chat.length) items.push(el("div", { class: "msg user" }, b.vision));
+  if (b && S.stage !== "clarifying") {
+    items.push(agentMsg(el("div", {}, "Here's the task I drafted — check it in the ", el("b", {}, "Task"), " tab, change anything, then sign it."),
       ...b.warnings.map((w) => stepLine("!", w, "bad"))));
   }
   if (S.mandate) items.push(agentMsg(stepLine("✓", `Signed. Budget ${hkd(S.mandate.signed_mandate.mandate.policy.budget_cap.amount_minor)} is now a hard limit.`, "ok")));
@@ -331,6 +371,8 @@ function renderThread() {
   if (S.activity.length) {
     for (const a of S.activity) {
       if (a.kind === "agent") items.push(agentMsg(el("div", {}, a.text)));
+      else if (a.kind === "thinking") items.push(agentMsg(thinkingBlock(a.text)));
+      else if (a.kind === "mcp") items.push(agentMsg(stepLine("⇄", `MCP · ${a.server} › ${a.tool} · ${a.ms} ms${a.ok ? "" : " · failed"}${a.summary ? " · " + a.summary : ""}`, `mcp ${a.ok ? "" : "bad"}`)));
       else if (a.kind === "status") items.push(agentMsg(stepLine("•", a.text)));
       else if (a.kind === "error") items.push(agentMsg(stepLine("✕", a.text, "bad")));
       else if (a.kind === "tool") {
@@ -349,7 +391,8 @@ function renderThread() {
         }
       }
     }
-  } else if (S.assessments.length) {
+  }
+  if (S.assessments.length && !S.activity.some((a) => a.kind === "tool")) {
     const n = (s) => S.assessments.filter((a) => a.status === s).length;
     items.push(agentMsg(stepLine("✓", `Checked ${S.assessments.length} gigs on GigMarket: ${n("excluded")} ruled out by your rules or red flags.`, "ok")));
   }
@@ -380,12 +423,70 @@ function sellerBubble(m, outgoing) {
 
 function action(label, fn, primary = true) { return el("button", { class: `btn ${primary ? "primary" : ""}`, onclick: (e) => run(e.currentTarget, fn) }, label); }
 
+function thinkingBlock(text) {
+  return el("details", { class: "think" }, el("summary", {}, "Thought for a moment"), el("div", {}, text));
+}
+
+function addAnswer(question, option, count) {
+  const line = count > 1 ? `${question.replace(/\?$/, "")}: ${option}` : option;
+  answerDraft = answerDraft ? `${answerDraft}\n${line}` : line;
+  const a = $("answer"); if (a) { a.value = answerDraft; a.focus(); }
+}
+
+async function talk(fn) {
+  pending = true; render();
+  try { const out = await fn(); if (out) S = out; await refreshLog(); }
+  catch (e) { $("err-action").textContent = e.message; }
+  finally { pending = false; pendingVision = null; render(); }
+}
+
+function sendAnswer() {
+  const text = (answerDraft || "").trim();
+  if (!text) return;
+  S.chat = [...S.chat, { role: "user", text, questions: [] }];
+  answerDraft = "";
+  talk(() => api("POST", "/hire/answer", { text }));
+}
+
+function renderConnections() {
+  const p = $("pane-connections"), conns = S.connections || [];
+  const card = (c) => el("div", { class: "card conn" },
+    el("div", { class: "head" }, el("b", {}, `${c.name} MCP server`), SIM(),
+      tag(c.connected ? "Connected" : c.error ? "Error" : "Not connected yet", c.connected ? "ok" : c.error ? "bad" : "neutral"),
+      el("span", { class: "muted small" }, `transport: ${c.transport}`)),
+    el("div", { class: "muted small" }, "Fiverr-style marketplace (simulated). The agent reaches it only through these MCP tools:"),
+    el("div", { class: "tools" }, ...(c.tools.length ? c.tools : [{ name: "connects on first search" }]).map((t) => tag(t.name, "neutral"))),
+    c.error ? el("div", { class: "error" }, c.error) : null,
+    c.calls.length ? el("table", { class: "calls" }, ...[...c.calls].reverse().slice(0, 25).map((r) => el("tr", {},
+      el("td", { class: "mono" }, r.tool), el("td", { class: "mono" }, `${r.ms} ms`), el("td", {}, r.ok ? tag("ok", "ok") : tag("failed", "bad")),
+      el("td", { class: "muted" }, r.summary)))) : el("div", { class: "muted small" }, "No calls yet."));
+  p.replaceChildren(
+    el("h3", {}, "Connections"),
+    el("p", { class: "muted small" }, "Marketplaces plug in through MCP (Model Context Protocol). The agent doesn't need custom code per platform: any marketplace that offers an MCP server with these tools works the same way."),
+    el("div", { class: "flow", style: "margin:4px 0 14px" }, el("span", { class: "node" }, "AI agent"), "→", el("span", { class: "node" }, "GigGuard policy gate"),
+      "→", el("span", { class: "node" }, "MCP client"), "⇄", el("span", { class: "node" }, "GigMarket MCP server")),
+    el("div", { class: "grid2", style: "grid-template-columns:1fr" }, ...conns.map(card),
+      el("div", { class: "card conn" }, el("div", { class: "head" }, el("b", {}, "Stripe MCP server (payments)"), tag("Test mode", "warn"), tag("Not configured", "neutral")),
+        el("div", { class: "muted small" }, "Payments currently use GigGuard's SIMULATED escrow. Add a Stripe test key (sk_test_…) to .env to hold and capture test-card payments through Stripe's MCP server."))));
+}
+
 function renderComposer() {
   const hint = $("next-hint"), acts = [];
   let h = "";
   switch (S.stage) {
+    case "new": h = pending ? "The AI is reading your idea…" : ""; break;
+    case "clarifying": {
+      h = "Answer in your own words or tap a suggestion. You can also skip the questions.";
+      const box = el("textarea", { id: "answer", class: "answer", rows: "2", placeholder: "Type your answer…" });
+      box.value = answerDraft; box.disabled = pending;
+      box.oninput = () => { answerDraft = box.value; };
+      box.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAnswer(); } };
+      acts.push(box, el("button", { class: "btn primary", onclick: sendAnswer, ...(pending ? { disabled: "" } : {}) }, "Send"),
+                el("button", { class: "btn", onclick: (e) => talk(() => api("POST", "/hire/skip")), ...(pending ? { disabled: "" } : {}) }, "Skip questions"));
+      break;
+    }
     case "drafted": h = "Check the task on the right, then sign it. The agent can't spend more than this budget."; acts.push(action("Sign & register task", registerTask)); break;
-    case "registered": h = S.ai.agent === "claude" ? "Claude will search, message sellers and recommend one." : "The agent will search, message sellers and recommend one.";
+    case "registered": h = S.ai.agent !== "rules" ? `${S.ai.provider === "gemini" ? "Gemini" : "Claude"} will search GigMarket over MCP, message sellers and recommend one.` : "The agent will search GigMarket over MCP, message sellers and recommend one.";
       acts.push(action("Find me a freelancer", () => api("POST", "/hire/search"))); break;
     case "searching": h = "The agent is working. You can watch every step here."; break;
     case "no_match": h = "Try a bigger budget or a longer deadline (start a new task), or search again."; acts.push(action("Search again", () => api("POST", "/hire/search")), action("New task", newTask, false)); break;
@@ -396,6 +497,7 @@ function renderComposer() {
     default: h = "This task has ended."; acts.push(action("Start a new task", newTask));
   }
   hint.textContent = h; $("next-actions").replaceChildren(...acts);
+  if (S.stage === "clarifying" && !pending) { const a = $("answer"); if (a && document.activeElement !== a) a.focus(); }
 }
 
 function renderTask() {
@@ -554,11 +656,13 @@ function stopPolling() { if (poll) { clearInterval(poll); poll = null; } }
 
 $("prompt-form").onsubmit = async (e) => {
   e.preventDefault();
+  const text = $("vision").value.trim();
   $("err-vision").textContent = "";
-  $("btn-vision").disabled = true;
-  try { S = await api("POST", "/hire/vision", { text: $("vision").value }); logOut = null; tamperOut = null; userPickedTab = false; render(); }
-  catch (err) { $("err-vision").textContent = err.message; }
-  finally { $("btn-vision").disabled = false; }
+  if (!text) { $("err-vision").textContent = "Describe the job first."; return; }
+  logOut = null; tamperOut = null; userPickedTab = false; answerDraft = "";
+  S = { ...S, stage: "new", chat: [] }; pendingVision = text;
+  await talk(() => api("POST", "/hire/vision", { text }));
+  if (S.stage === "new") { $("err-vision").textContent = $("err-action").textContent || "Something went wrong."; }
 };
 $("vision").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("prompt-form").requestSubmit(); } });
 $("btn-new").onclick = (e) => run(e.currentTarget, newTask);

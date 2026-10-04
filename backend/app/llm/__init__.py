@@ -1,4 +1,6 @@
-"""Thin, deterministic wrapper around the Anthropic SDK.
+"""Thin, deterministic wrapper around the LLM providers: Anthropic (SDK) or Google Gemini (REST).
+
+Provider: env GIGGUARD_LLM_PROVIDER = anthropic | gemini (default anthropic).
 
 Three modes (env GIGGUARD_LLM_MODE):
 - "live":    call the API, then cache the response on disk by sha256(model + system + prompt).
@@ -37,7 +39,10 @@ def load_env_file(path: Path = ROOT / ".env") -> None:
             continue
         key, value = line.split("=", 1)
         os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 Mode = Literal["live", "offline", "stub"]
+Provider = Literal["anthropic", "gemini"]
 StubFn = Callable[[str, str, str], str]   # (task, system, prompt) -> text
 
 # Models that still accept `temperature`. Newer models (Opus 5.5, Opus 5, Sonnet 5, ...) reject it.
@@ -50,6 +55,20 @@ def agent_model() -> str:
 
 def fast_model() -> str:
     return os.environ.get("GIGGUARD_FAST_MODEL", "claude-haiku-4-5-20251001")
+
+
+def provider_from_env() -> Provider:
+    p = os.environ.get("GIGGUARD_LLM_PROVIDER", "anthropic")
+    if p not in ("anthropic", "gemini"):
+        raise ValueError(f"GIGGUARD_LLM_PROVIDER must be anthropic or gemini, not {p!r}")
+    return p  # type: ignore[return-value]
+
+
+def has_credentials(provider: Provider) -> bool:
+    if provider == "gemini":
+        from app.llm.gemini import api_key
+        return bool(api_key())
+    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
 def mode_from_env() -> Mode:
@@ -69,12 +88,42 @@ def cache_key(model: str, system: str, prompt: str) -> str:
 
 class LLMClient:
     def __init__(self, mode: Mode, cache_dir: Path = DEFAULT_CACHE_DIR,
-                 stub: Optional[StubFn] = None, sdk_client: Any = None):
+                 stub: Optional[StubFn] = None, sdk_client: Any = None,
+                 provider: Provider = "anthropic", http_post: Any = None):
         self.mode = mode
+        self.provider = provider
+        self._http_post = http_post     # injectable Gemini transport for tests
         self.cache_dir = Path(cache_dir)
         self._stub = stub
         self._sdk = sdk_client          # injectable for tests; created lazily in live mode
         self.calls = 0                  # API calls actually made (cache hits don't count)
+
+    def model_for_agent(self) -> str:
+        """The main model for the configured provider."""
+        if self.provider == "gemini":
+            from app.llm.gemini import gemini_model
+            return gemini_model()
+        return agent_model()
+
+    def gemini_generate(self, task: str, model: str, body: dict[str, Any]) -> dict[str, Any]:
+        """One Gemini generateContent call, cached on disk by a hash of (model, body)."""
+        if self.mode == "stub":
+            raise LLMError("Gemini needs GIGGUARD_LLM_MODE=live (or offline with a recorded cache)")
+        from app.llm import gemini
+        key = hashlib.sha256(json.dumps([model, body], sort_keys=True).encode()).hexdigest()
+        path = self.cache_dir / f"gem-{key}.json"
+        if path.exists():
+            return json.loads(path.read_text())["response"]
+        if self.mode == "offline":
+            raise LLMError(f"offline mode: no cached response for {task} ({key[:12]})")
+        try:
+            self.calls += 1
+            used, data = gemini.generate(model, body, self._http_post, **({"sleep": lambda s: None} if self._http_post else {}))
+        except gemini.GeminiError as exc:
+            raise LLMError(f"Gemini: {exc}") from exc
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"task": task, "model": used, "body": body, "response": data}, indent=1))
+        return data
 
     def complete(self, task: str, model: str, system: str, prompt: str, max_tokens: int = 16000) -> str:
         """Return the model's text answer. `task` names the call site (used by stub mode)."""
@@ -90,7 +139,15 @@ class LLMClient:
         if self.mode == "offline":
             raise LLMError(f"offline mode: no cached response for {task} ({key[:12]})")
 
-        text = self._call_api(model, system, prompt, max_tokens)
+        if self.provider == "gemini":
+            from app.llm.gemini import answer_text
+            body = {"systemInstruction": {"parts": [{"text": system}]},
+                    "contents": [{"role": "user", "parts": [{"text": prompt}]}]}
+            text = answer_text(self.gemini_generate(task, model, body))
+            if not text:
+                raise LLMError("empty response")
+        else:
+            text = self._call_api(model, system, prompt, max_tokens)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"model": model, "system": system, "prompt": prompt,
                                     "task": task, "response": text}, indent=1))
