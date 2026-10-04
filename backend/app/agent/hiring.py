@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Optional
 
 from nacl.signing import SigningKey
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.agent.brief import Brief, draft_brief
 from app.agent.clarify import Clarifier
@@ -53,12 +53,15 @@ class FlowError(Exception):
     """A step was called out of order or with unusable input. Maps to HTTP 409/422."""
 
 
+BUDGET_RE = re.compile(r"^\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$|^\d+(?:\.\d{1,2})?$")
+
+
 class RegisterForm(BaseModel):
     """What the user signs, after editing the draft."""
     model_config = ConfigDict(extra="forbid")
     title: str = Field(min_length=3, max_length=120)
     category: str
-    budget_hkd: str = Field(pattern=r"^\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$|^\d+(?:\.\d{1,2})?$")
+    budget_hkd: str
     deadline_days: int = Field(ge=1, le=365)
     min_words: Optional[int] = Field(default=None, ge=0, le=100_000)
     max_words: Optional[int] = Field(default=None, ge=1, le=100_000)
@@ -67,6 +70,25 @@ class RegisterForm(BaseModel):
     verified_required: bool = True
     milestone_only: bool = False
     principal: str = "demo-user (SIMULATED)"
+
+    # Accept the ways people naturally type an amount ("HKD 2,000", "HK$2000", "$2,000", "2000 HKD"),
+    # then insist on a plain number. Anything else is rejected with a message a person can act on.
+    @field_validator("budget_hkd", mode="before")
+    @classmethod
+    def _budget(cls, v):
+        text = re.sub(r"(?i)\s*(hkd|hk\$|\$|dollars?)\s*", "", str(v or "")).strip()
+        if not text:
+            raise ValueError("Budget is empty. Type the most you'd pay in HKD, e.g. 2000.")
+        if not BUDGET_RE.match(text):
+            raise ValueError(f"Budget \"{str(v)[:30]}\" isn't an HKD amount. Type a number, e.g. 2000 or 2,000.50.")
+        return text
+
+    @field_validator("deadline_days", mode="before")
+    @classmethod
+    def _deadline(cls, v):
+        if v is None or v == "":
+            raise ValueError("Deadline is empty. Type how many days the freelancer has, e.g. 7.")
+        return v
 
 
 @dataclass

@@ -287,12 +287,22 @@ const why = (c) => REASONS[c] || c.replace(/^FLAGGED:/, "flagged: ");
 const STAGE_LABEL = { clarifying: "Understanding", drafted: "Review", registered: "Signed", searching: "Searching…", no_match: "No match", proposed: "Awaiting you",
   funded: "In escrow", escalated: "Needs human", denied: "Refused", delivered: "Delivered", held: "On hold", released: "Paid" };
 
+// Validation errors from the server, in words a person can act on.
+const FIELD_LABEL = { budget_hkd: "Budget", deadline_days: "Deadline (days)", title: "Title", category: "Category",
+  min_words: "Min words", max_words: "Max words", min_rating_x100: "Min rating", min_completed_orders: "Min orders" };
+function friendlyError(x) {
+  const msg = (x.msg || "").replace(/^Value error, /, "");
+  const field = (x.loc || []).slice(1).join(".");
+  if (/^(Budget|Deadline) /.test(msg)) return msg;           // already a full sentence from the server
+  return `${FIELD_LABEL[field] || field || "Input"}: ${msg}`;
+}
+
 async function api(method, path, body) {
   const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const d = data.detail;
-    throw new Error(Array.isArray(d) ? d.map((x) => `${(x.loc || []).slice(1).join(".") || "input"}: ${x.msg}`).join("\n") : d || res.statusText);
+    throw new Error(Array.isArray(d) ? d.map(friendlyError).join("\n") : d || res.statusText);
   }
   return data;
 }

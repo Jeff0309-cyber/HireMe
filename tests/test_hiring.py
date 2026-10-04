@@ -239,6 +239,28 @@ def test_register_form_rejects_float_like_garbage():
         RegisterForm(title="Logo", category="logo_design", budget_hkd="1e5", deadline_days=7)
 
 
+@pytest.mark.parametrize("typed", ["HKD 2,000", "HK$2000", "$2,000", "2000 HKD", "hkd2000.00", " 2000 "])
+def test_register_form_accepts_everyday_currency_formats(typed):
+    form = RegisterForm(title="Logo", category="logo_design", budget_hkd=typed, deadline_days=7)
+    assert form.budget_hkd.replace(",", "") in ("2000", "2000.00")
+
+
+@pytest.mark.parametrize("typed", ["USD 2000", "2000 EUR", "two thousand", "-2000", "HKD"])
+def test_register_form_rejects_other_currencies_and_words(typed):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        RegisterForm(title="Logo", category="logo_design", budget_hkd=typed, deadline_days=7)
+
+
+def test_empty_budget_and_deadline_give_plain_messages():
+    """After 'skip questions' with no budget or deadline in the text, both fields are empty."""
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError) as err:
+        RegisterForm(title="Logo", category="logo_design", budget_hkd="", deadline_days=None)
+    text = str(err.value)
+    assert "Budget is empty" in text and "Deadline is empty" in text and "pattern" not in text
+
+
 # --- deadlines in months and other everyday phrasings ---------------------------------------------
 
 @pytest.mark.parametrize("phrase, days", [
