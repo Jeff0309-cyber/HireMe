@@ -8,6 +8,8 @@ dependencies = [
   "pydantic>=2",
   "pynacl",
   "anthropic",
+  "httpx",
+  "mcp>=2",
 ]
 
 [project.optional-dependencies]
