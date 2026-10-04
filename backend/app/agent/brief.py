@@ -50,7 +50,12 @@ _WEEKS = re.compile(r"\b(?:in|within)?\s*(\d{1,2}|a|one|two|three)\s*weeks?\b", 
 _WORDS_RANGE = re.compile(r"\b(\d{2,5})\s*(?:-|–|to)\s*(\d{2,5})\s*words?\b", _I)
 _WORDS_ONE = re.compile(r"\b(?:about|around|~)?\s*(\d{2,5})\s*words?\b", _I)
 _OTHER_MONEY = re.compile(r"(?:USD|US\$|EUR|GBP|RMB|€|£|(?<![A-Za-z])\$\s?\d)", _I)
-_WORD_NUM = {"a": 1, "one": 1, "two": 2, "three": 3}
+_WORD_NUM = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+# "within 1 month", "in a month", "2 to 6 months": the FIRST (earliest) number counts as the deadline.
+_MONTHS = re.compile(r"\b(?:in|within|by|under)?\s*(\d{1,2}|an?|one|two|three|four|five|six)\s*(?:(?:-|–|to)\s*\d{1,2}\s*)?months?\b", _I)
+_FIXED = [(re.compile(r"\b(?:a|one)\s+fortnight\b|\bfortnight\b", _I), 14),
+          (re.compile(r"\bnext\s+week\b", _I), 7),
+          (re.compile(r"\btomorrow\b", _I), 1)]
 _MUST = re.compile(r"\b(?:must|need(?:s)? to|should|has to|have to|make sure|include|including|with)\b([^.;\n]{3,80})", _I)
 
 
@@ -102,6 +107,18 @@ def _deadline(text: str, brief: Brief) -> None:
         brief.deadline_days = 7 * (_WORD_NUM.get(n) or int(n))
         brief.notes.append(f"Deadline: \"{w.group(0).strip()}\".")
         return
+    mo = _MONTHS.search(text)
+    if mo:
+        n = mo.group(1).lower()
+        brief.deadline_days = 30 * (_WORD_NUM.get(n) or int(n))
+        brief.notes.append(f"Deadline: \"{mo.group(0).strip()}\" (counted as {brief.deadline_days} days).")
+        return
+    for pattern, days in _FIXED:
+        f = pattern.search(text)
+        if f:
+            brief.deadline_days = days
+            brief.notes.append(f"Deadline: \"{f.group(0).strip()}\" ({days} days).")
+            return
     brief.warnings.append("No deadline found. Please set one so the agent only considers gigs that deliver in time.")
 
 
@@ -209,16 +226,18 @@ def brief_from_model(fields: dict, user_text: str, source: str) -> Brief:
         brief.notes += [n for n in rules.notes if n.startswith("Budget")]
         brief.warnings += [w for w in rules.warnings if "budget" in w.lower()]
 
-    # Deadline: keep Claude's only if the parser found the same number of days.
-    if c.deadline_days is not None and c.deadline_days == rules.deadline_days:
-        brief.deadline_days = c.deadline_days
-        brief.notes += [n for n in rules.notes if n.startswith("Deadline")]
-    else:
-        brief.deadline_days = rules.deadline_days
-        if c.deadline_days is not None and c.deadline_days != rules.deadline_days:
-            brief.warnings.append("The AI's deadline didn't match your text, so the parsed one is used.")
-        brief.notes += [n for n in rules.notes if n.startswith("Deadline")]
-        brief.warnings += [w for w in rules.warnings if "deadline" in w.lower()]
+    # Deadline: always the one read from the user's own words. The AI's suggestion is only shown,
+    # never used, because the deadline decides which sellers qualify.
+    brief.deadline_days = rules.deadline_days
+    brief.notes += [n for n in rules.notes if n.startswith("Deadline")]
+    if rules.deadline_days is None:
+        if c.deadline_days:
+            brief.warnings.append(f"Please set the deadline. The AI suggested about {c.deadline_days} days, but your "
+                                  "answers don't say it clearly enough for us to rely on it.")
+        else:
+            brief.warnings += [w for w in rules.warnings if "deadline" in w.lower()]
+    elif c.deadline_days and c.deadline_days != rules.deadline_days:
+        brief.notes.append(f"Deadline taken from your words; the AI had suggested {c.deadline_days} days.")
 
     if c.min_words and c.max_words and 0 < c.min_words <= c.max_words <= 100_000:
         brief.min_words, brief.max_words = c.min_words, c.max_words

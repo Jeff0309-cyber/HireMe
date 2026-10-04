@@ -237,3 +237,41 @@ def test_register_form_rejects_float_like_garbage():
         RegisterForm(title="Logo", category="logo_design", budget_hkd="2,000.505", deadline_days=7)
     with pytest.raises(ValidationError):
         RegisterForm(title="Logo", category="logo_design", budget_hkd="1e5", deadline_days=7)
+
+
+# --- deadlines in months and other everyday phrasings ---------------------------------------------
+
+@pytest.mark.parametrize("phrase, days", [
+    ("Within 1 month", 30), ("in a month", 30), ("In 2 to 6 months", 60), ("within a fortnight", 14),
+    ("by next week", 7), ("need it tomorrow", 1), ("in two weeks", 14), ("10 days", 10),
+])
+def test_deadline_phrasings(phrase, days):
+    assert draft_brief(f"Wedding video, HKD 8,000. {phrase}").deadline_days == days
+
+
+def test_minutes_are_not_a_deadline():
+    b = draft_brief("A 3-5 minute highlight reel, HKD 8,000")
+    assert b.deadline_days is None
+
+
+def test_wedding_conversation_from_the_bug_report():
+    # The user's real answers: the AI read "Within 1 month" as 30 days; the parser now agrees.
+    from app.agent.brief import brief_from_model
+    user_text = ("I want a wedding videographer\n"
+                 "What style of wedding video are you looking for: Cinematic / Storytelling\n"
+                 "What is your estimated budget for this project: Under HKD 10,000\n"
+                 "When is the wedding scheduled or when do you need the final video: Within 1 month\n"
+                 "What is the desired length of the final edited video: 3-5 minute highlight reel")
+    b = brief_from_model({"title": "Wedding video", "category": "video_editing", "budget_hkd": 10000,
+                          "deadline_days": 30}, user_text, source="gemini")
+    assert (b.deadline_days, b.budget_minor) == (30, 1_000_000)
+    assert not b.warnings
+
+
+def test_ai_deadline_without_user_words_gives_one_clear_warning():
+    from app.agent.brief import brief_from_model
+    b = brief_from_model({"title": "Logo", "category": "logo_design", "deadline_days": 30},
+                         "A logo for my shop, HKD 2,000", source="gemini")
+    assert b.deadline_days is None
+    deadline_warnings = [w for w in b.warnings if "deadline" in w.lower()]
+    assert len(deadline_warnings) == 1 and "suggested about 30 days" in deadline_warnings[0]
